@@ -6,8 +6,7 @@ import Sidebar from "./Sidebar";
 import { DashboardProvider } from "@/context/DashboardContext";
 
 const GROUP_PATH = process.env.NEXT_PUBLIC_GITLAB_GROUP_PATH ?? "";
-// const PROJECT_NAME = GROUP_PATH.split('/').pop() ?? 'Dashboard';
-const PROJECT_NAME = "G3-UniGames";
+const PROJECT_NAME = process.env.NEXT_PUBLIC_PROJECT_NAME ?? GROUP_PATH.split('/').pop() ?? 'Dashboard';
 
 interface AppShellProps {
   children: React.ReactNode;
