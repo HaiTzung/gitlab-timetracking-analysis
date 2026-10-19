@@ -12,7 +12,7 @@ interface ProductivityAnalysisProps {
 
 const ProductivityAnalysis: React.FC<ProductivityAnalysisProps> = ({ productivityPatterns }) => {
     return (
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div id="produktivitatsanalyse" className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-6 text-gray-800">Produktivitätsanalyse</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Hourly Pattern */}

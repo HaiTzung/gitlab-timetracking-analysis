@@ -22,7 +22,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
     COLORS 
 }) => {
     return (
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div id="zeitliche-entwicklung" className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-6 text-gray-800">Zeitliche Entwicklung</h2>
             <div className="grid grid-cols-1 gap-6">
                 {/* Velocity Chart */}

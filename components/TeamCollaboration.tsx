@@ -18,7 +18,7 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
     COLORS 
 }) => {
     return (
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div id="team-zusammenarbeit" className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-6 text-gray-800">Team Zusammenarbeit</h2>
             <div className="grid grid-cols-1 gap-6">
                 {/* Team Collaboration Network */}

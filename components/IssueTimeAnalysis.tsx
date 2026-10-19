@@ -110,7 +110,7 @@ const IssueTimeAnalysis: React.FC<IssueTimeAnalysisProps> = ({ issues }) => {
     });
 
     return (
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div id="issue-zeitanalyse" className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-6 text-gray-800">Issue Zeitanalyse</h2>
             
             {/* Category Comparison Chart */}

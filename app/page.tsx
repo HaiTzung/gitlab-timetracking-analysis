@@ -1,8 +1,10 @@
 import TimeTrackingDashboard from "@/components/TimeTrackingDashboard";
 
+const startDate = new Date(process.env.NEXT_PUBLIC_START_DATE ?? "2026-09-27");
+const endDate = new Date(process.env.NEXT_PUBLIC_END_DATE ?? "2027-07-01");
+
 export default function Home() {
   return (
-      /* ADAPT THE DATES HERE ACCORDINGLY*/
-    <TimeTrackingDashboard startDate={new Date("2024-10-01")} endDate={new Date("2025-07-01")} />
+    <TimeTrackingDashboard startDate={startDate} endDate={endDate} />
   );
 }

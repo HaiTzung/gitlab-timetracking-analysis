@@ -8,9 +8,21 @@ interface ProjectOverviewProps {
 }
 
 const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issues }) => {
+    const missingEstimates = issues.filter(i => i.timeEstimate === 0 && i.totalTimeSpent > 0);
+
     return (
-        <div className="bg-white p-4 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">Projektübersicht</h2>
+        <div id="projektubersicht" className="bg-white p-4 rounded-lg shadow">
+
+            {missingEstimates.length > 0 && (
+                <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                    <span className="mt-0.5 text-base">⚠️</span>
+                    <span>
+                        <strong>{missingEstimates.length} {missingEstimates.length === 1 ? 'Issue hat' : 'Issues haben'} keine Zeitschätzung</strong>, obwohl Zeit gebucht wurde.
+                        Schätzungen setzen mit <code className="rounded bg-yellow-100 px-1">/estimate Xh</code> in der Issue-Beschreibung.
+                    </span>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Team Velocity */}
                 <div className="bg-blue-50 p-4 rounded-lg">

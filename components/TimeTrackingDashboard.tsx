@@ -2,6 +2,7 @@
 
 import React, {useState, useEffect} from 'react';
 import axios from 'axios';
+import { DashboardContext } from '@/context/DashboardContext';
 import { startOfWeek, format, eachDayOfInterval, startOfMonth, endOfMonth, addMonths, subMonths, getDay, getWeek, addWeeks, subWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -41,7 +42,14 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     const [timelogs, setTimelogs] = useState<Timelog[]>([]);
     const [issues, setIssues] = useState<Issue[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadedCount, setLoadedCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const [autoRefresh, setAutoRefresh] = useState(false);
+    const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const totalFetchCount = TEAM_MEMBERS.length + 1; // +1 for issues
+
+    const REFRESH_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_REFRESH_INTERVAL ?? 300) * 1000;
 
     const fetchAllIssues = async (): Promise<void> => {
         try {
@@ -75,7 +83,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                     },
                     {
                         headers: {
-                            Authorization: `Bearer ${GITLAB_CONFIG.TOKEN}`,
                             'Content-Type': 'application/json',
                         },
                     }
@@ -90,6 +97,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
 
             console.log('Total issues fetched:', allIssues.length);
             setIssues(allIssues);
+            setLoadedCount(prev => prev + 1);
         } catch (err) {
             setError(ERROR_MESSAGES.FETCH_ISSUES);
             console.error('Error fetching issues:', err);
@@ -117,7 +125,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                                     username: "${username}"
                                 ) {
                                     nodes {
-                                        user { name }
+                                        user { name username }
                                         issue {
                                             title
                                             iid
@@ -139,7 +147,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                     },
                     {
                         headers: {
-                            Authorization: `Bearer ${GITLAB_CONFIG.TOKEN}`,
                             'Content-Type': 'application/json',
                         },
                     }
@@ -154,6 +161,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
 
             console.log(`Total timelogs fetched for ${username}:`, allTimelogs.length);
             setTimelogs((prev: Timelog[]) => [...prev, ...allTimelogs]);
+            setLoadedCount(prev => prev + 1);
         } catch (err) {
             setError(`Error fetching timelogs for user ${username}`);
             console.error(`Error fetching timelogs for user ${username}:`, err);
@@ -166,12 +174,14 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             setError(null);
             setTimelogs([]);
             setIssues([]);
+            setLoadedCount(0);
 
             try {
                 await Promise.all([
                     fetchAllIssues(),
                     ...TEAM_MEMBERS.map(username => fetchTimelogsForUser(username))
                 ]);
+                setLastRefreshed(new Date());
             } catch (err) {
                 setError(ERROR_MESSAGES.LOADING_ERROR);
             } finally {
@@ -182,7 +192,31 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         fetchAllData();
     }, [startDate, endDate]);
 
-    const processChartData = () => {
+    useEffect(() => {
+        if (!autoRefresh) return;
+        const id = setInterval(async () => {
+            if (loading) return;
+            setLoading(true);
+            setError(null);
+            setTimelogs([]);
+            setIssues([]);
+            setLoadedCount(0);
+            try {
+                await Promise.all([
+                    fetchAllIssues(),
+                    ...TEAM_MEMBERS.map(username => fetchTimelogsForUser(username))
+                ]);
+                setLastRefreshed(new Date());
+            } catch {
+                setError(ERROR_MESSAGES.LOADING_ERROR);
+            } finally {
+                setLoading(false);
+            }
+        }, REFRESH_INTERVAL_MS);
+        return () => clearInterval(id);
+    }, [autoRefresh, REFRESH_INTERVAL_MS]);
+
+    const processChartData = (timelogs: Timelog[], issues: Issue[]) => {
         // === 1. Piechart (Kategorie-Zeiten gesamt) ===
         const categoryMap: Record<string, number> = { ...CATEGORY_MAP };
 
@@ -552,7 +586,21 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     };
 
     if (loading) {
-        return <div className="alert alert--info">{ERROR_MESSAGES.LOADING}</div>;
+        const percent = Math.round((loadedCount / totalFetchCount) * 100);
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50">
+                <p className="text-gray-600 text-sm font-medium">
+                    {ERROR_MESSAGES.LOADING} ({loadedCount}/{totalFetchCount})
+                </p>
+                <div className="w-72 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                        style={{ width: `${percent}%` }}
+                    />
+                </div>
+                <p className="text-gray-400 text-xs">{percent}%</p>
+            </div>
+        );
     }
 
     if (error) {
@@ -563,21 +611,55 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         return <div className="alert alert--warning">{ERROR_MESSAGES.NO_DATA}</div>;
     }
 
-    const { 
-        pieData, 
-        lineData, 
-        barData, 
-        heatmapData, 
-        projectMetrics, 
-        averageTeamMembersData, 
-        issueComplexityData, 
-        collaborationData, 
-        productivityPatterns 
-    } = processChartData();
+    const {
+        pieData,
+        lineData,
+        barData,
+        heatmapData,
+        projectMetrics,
+        averageTeamMembersData,
+        issueComplexityData,
+        collaborationData,
+        productivityPatterns
+    } = processChartData(
+        selectedCategory
+            ? timelogs.filter(t => t.issue?.labels?.nodes?.some(l => l.title === selectedCategory))
+            : timelogs,
+        selectedCategory
+            ? issues.filter(i => i.labels?.nodes?.some(l => l.title === selectedCategory))
+            : issues
+    );
+
+    const userLastLogged: Record<string, string | null> = Object.fromEntries(
+        TEAM_MEMBERS.map(username => {
+            const userLogs = timelogs.filter(t => t.user.username === username);
+            const latest = userLogs.length > 0
+                ? userLogs.reduce((a, b) => a.spentAt > b.spentAt ? a : b).spentAt
+                : null;
+            return [username, latest];
+        })
+    );
 
     return (
-        <div className="mt-8 space-y-10">
-            <ProjectOverview 
+        <DashboardContext.Provider value={{
+            lastRefreshed,
+            autoRefresh,
+            refreshIntervalMs: REFRESH_INTERVAL_MS,
+            timelogs,
+            onToggleAutoRefresh: () => setAutoRefresh(prev => !prev),
+        }}>
+        <div className="space-y-10">
+            {/* Filter chip */}
+            {selectedCategory && (
+                <div className="flex items-center gap-3 text-sm text-gray-500">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                        Filter: {selectedCategory}
+                        <button onClick={() => setSelectedCategory(null)} className="ml-1 hover:text-blue-900">✕</button>
+                    </span>
+                </div>
+            )}
+
+            <ProjectOverview
                 projectMetrics={projectMetrics}
                 issues={issues}
             />
@@ -596,10 +678,14 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                 COLORS={[...COLORS.PRIMARY]}
             />
 
-            <TeamAndCategories 
+            <TeamAndCategories
                 pieData={pieData}
                 barData={barData}
                 COLORS={[...COLORS.PRIMARY]}
+                userLastLogged={userLastLogged}
+                teamMembers={[...TEAM_MEMBERS]}
+                selectedCategory={selectedCategory}
+                onCategorySelect={setSelectedCategory}
             />
 
             <ProductivityAnalysis 
@@ -621,8 +707,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                 issues={issues}
             />
 
-    
         </div>
+        </DashboardContext.Provider>
     );
 };
 

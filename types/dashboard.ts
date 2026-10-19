@@ -10,7 +10,7 @@ export interface Issue {
 }
 
 export interface Timelog {
-    user: { name: string };
+    user: { name: string; username: string };
     issue: {
         title: string;
         iid: string;

@@ -13,7 +13,7 @@ interface IssueAnalysisProps {
 
 const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLORS }) => {
     return (
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div id="issue-analyse" className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-6 text-gray-800">Issue Analyse</h2>
             <div className="grid grid-cols-1 gap-6">
                 {/* Issue Complexity */}
