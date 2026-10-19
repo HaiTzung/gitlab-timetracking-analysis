@@ -19,6 +19,21 @@ services:
       NEXT_PUBLIC_END_DATE: ${NEXT_PUBLIC_END_DATE}
       NEXT_PUBLIC_PROJECT_NAME: ${NEXT_PUBLIC_PROJECT_NAME}
       ACCESS_PASSWORD: ${ACCESS_PASSWORD}
+    networks:
+      - global-postgres-net
     ports:
       - "3000:3000"
     restart: unless-stopped
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: clf-segld
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
+    networks:
+      - global-postgres-net
+
+networks:
+  global-postgres-net:
+    external: true
