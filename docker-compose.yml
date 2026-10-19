@@ -28,7 +28,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: clf-segld
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run
     networks:
       - global-postgres-net
 
