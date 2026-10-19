@@ -1,13 +1,12 @@
 ## Time Tracking Dashboard
 
-A small dashboard built for a software engineering project at DHBW.
+A dashboard built for software engineering projects at DHBW.
 It provides analysis for issue-based time tracking, which GitLab itself does not natively offer.
 
+> [!NOTE]
+> This project was developed in a short amount of time, so the code quality is not great.
+> It's more a "it just works somehow" kind of project.
 
-> [!NOTE]  
-> This project was developed in a short amount of time, so the code quality is not great.  
-> It’s more a "it just works somehow" kind of project.
-> 
 ## Features
 
 - 📊 **Project Overview**: Sprint metrics, velocity tracking, and category distribution
@@ -17,79 +16,110 @@ It provides analysis for issue-based time tracking, which GitLab itself does not
 - 👥 **Team Collaboration**: Network visualization of team collaboration
 - 📋 **Issue Analysis**: Issue complexity and time analysis
 - 📅 **Detailed Activity**: GitHub-style activity heatmap
+- 🔒 **Password protection**: Shared password login with persistent cookie
+- ⬇ **CSV Export**: Export last 7 days of timelogs
+- ⏱ **Auto-Refresh**: Configurable polling interval
 
-## Demo
+## Setup
 
-![Dashboard Demo](public/images/dashboard-demo.gif)
+### 1. Clone and configure
 
-
-## Configuration
-
-### 1. GitLab API Configuration
-
-Edit `config/dashboardConfig.ts` and update the following settings:
-
-```typescript
-export const GITLAB_CONFIG = {
-    API_URL: 'https://gitlab.com/api/graphql',
-    GROUP_PATH: 'your-group/your-project', // Replace with your GitLab group/project path
-    TOKEN: 'your-gitlab-token', // Replace with your GitLab personal access token
-    ISSUE_BASE_URL: 'https://gitlab.com/your-group/your-project/-/issues'
-} as const;
+```bash
+git clone <repo-url>
+cd gitlab-timetracking-analysis
+cp .env.example .env
 ```
 
-#### Getting Your GitLab Token
+Edit `.env` and fill in all values (see section below).
 
-1. Go to GitLab → Settings → Access Tokens
-2. Create a new token with `read_api` scope
-3. Copy the token and paste it in the config file
+### 2. Configure team members and categories
 
-### 2. Team Members Configuration
-
-Update the team members list in `config/dashboardConfig.ts`:
+Open `config/dashboardConfig.ts` and update:
 
 ```typescript
 export const TEAM_MEMBERS = [
     "username1",
-    "username2", 
-    "username3",
-    // Add all team member usernames
+    "username2",
+    // GitLab usernames of all team members
 ] as const;
-```
 
-### 3. Date Range Configuration
-
-Update the date range in `app/page.tsx`:
-
-```typescript
-// Set your desired date range
-const startDate = new Date('2024-01-01'); // Start date
-const endDate = new Date('2024-12-31');   // End date
-```
-
-### 4. Categories Configuration
-
-The dashboard uses these default categories. You can modify them in `config/dashboardConfig.ts`:
-
-```typescript
 export const CATEGORIES = {
-    REQUIREMENTS_ENGINEERING: "Requirements Engineering",
-    ENTWURF: "Entwurf", 
-    IMPLEMENTATION_TEST: "Implementation & Test",
-    PROJEKTMANAGEMENT: "Projektmanagement"
+    REQUIREMENTS_ENGINEERING: "category::requirements",
+    ENTWURF:                  "category::architecture",
+    IMPLEMENTATION_TEST:      "category::implementation",
+    PROJEKTMANAGEMENT:        "category::project-management",
 } as const;
 ```
 
+> [!WARNING]
+> The category values must exactly match the GitLab labels on your issues.
+> You can find your labels at `https://gitlab.com/<group>/-/labels`.
 
+### 3. Run with Docker
 
-> [!WARNING]  
-> Make sure your GitLab issues have labels that match these categories.
-> 
+```bash
+docker compose up --build
+```
+
+The dashboard is available at `http://localhost:3010` (or whichever port you set).
+
+On subsequent starts without config changes:
+
+```bash
+docker compose up -d
+```
+
+To rebuild after changing any `.env` value:
+
+```bash
+docker compose up --build
+```
+
+---
+
+## Environment variables
+
+Copy `.env.example` to `.env` and fill in the values:
+
+| Variable | Required | Description |
+|---|---|---|
+| `GITLAB_TOKEN` | ✅ | Personal access token with `read_api` scope |
+| `ACCESS_PASSWORD` | ✅ | Shared password for the login screen |
+| `NEXT_PUBLIC_GITLAB_GROUP_PATH` | ✅ | Full GitLab group path, e.g. `mygroup/myproject` |
+| `NEXT_PUBLIC_GITLAB_ISSUE_BASE_URL` | ✅ | Base URL for issue links, e.g. `https://gitlab.com/mygroup/myproject/-/issues` |
+| `NEXT_PUBLIC_PROJECT_NAME` | ✅ | Display name shown in the navbar, e.g. `G3-UniGames` |
+| `NEXT_PUBLIC_START_DATE` | ✅ | Project start date in `YYYY-MM-DD` format |
+| `NEXT_PUBLIC_END_DATE` | ✅ | Project end date in `YYYY-MM-DD` format |
+| `GITLAB_API_URL` | ❌ | Only needed for self-hosted GitLab instances |
+| `CLOUDFLARE_TUNNEL_TOKEN` | ❌ | Only needed if using Cloudflare Tunnel for public access |
+
+### Getting a GitLab token
+
+1. GitLab → **User Settings** → **Access Tokens**
+2. Create a token with **`read_api`** scope
+3. Paste it as `GITLAB_TOKEN` in `.env`
+
+---
+
+## Public access via Cloudflare Tunnel (optional)
+
+If you want to expose the dashboard publicly without opening a port, add a `cloudflared` service to your stack. The `docker-compose.yml` already includes it — just set `CLOUDFLARE_TUNNEL_TOKEN` in `.env`.
+
+In the Cloudflare Zero Trust dashboard, add a public hostname pointing to `http://app:3000` (the internal Docker service name, not `localhost`).
+
+---
+
+## Health check
+
+`GET /api/health` returns `{"status":"ok","timestamp":"..."}` — no authentication required. Wire it into Uptime Kuma or any other monitor.
+
+---
 
 ## Contributing
 
-If you want to improve this projects, feel free to create a fork :)
+If you want to improve this project, feel free to create a fork :)
 
 ## Support
-If you need help with setting up the project (for instance the api key or adding the labels to the issues on gitlab), feel free to contact me on discord:
+
+If you need help setting up the project, feel free to contact on Discord:
 [cubepixels](https://discord.com/users/cubepixels)
