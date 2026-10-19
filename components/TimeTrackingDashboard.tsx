@@ -70,6 +70,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                                     nodes {
                                         title
                                         iid
+                                        state
                                         labels { nodes { title } }
                                         timeEstimate
                                         totalTimeSpent

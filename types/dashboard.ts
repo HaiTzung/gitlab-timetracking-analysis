@@ -4,6 +4,7 @@ export interface Issue {
     totalTimeSpent: number;
     category: string;
     iid: string;
+    state: string;
     labels: {
         nodes: Array<{title: string}>;
     };

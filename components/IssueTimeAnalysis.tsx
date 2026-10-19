@@ -173,7 +173,7 @@ const IssueTimeAnalysis: React.FC<IssueTimeAnalysisProps> = ({ issues }) => {
                                     </td>
                                 </tr>
                             ) : sortedIssues.map((issue, index) => (
-                                <tr key={index} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${issue.totalTimeSpent === 0 ? 'line-through text-gray-400' : ''}`}>
+                                <tr key={index} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${issue.state === 'closed' && issue.totalTimeSpent === 0 ? 'line-through text-gray-400' : ''}`}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {index + 1}
                                     </td>
@@ -202,7 +202,7 @@ const IssueTimeAnalysis: React.FC<IssueTimeAnalysisProps> = ({ issues }) => {
                                             Math.abs(issue.difference) <= DEVIATION_THRESHOLDS.EXCELLENT ? 'bg-green-100 text-green-800' :
                                             Math.abs(issue.difference) <= DEVIATION_THRESHOLDS.GOOD ? 'bg-yellow-100 text-yellow-800' :
                                             'bg-red-100 text-red-800'
-                                        } ${issue.totalTimeSpent === 0 ? 'opacity-50' : ''}`}>
+                                        } ${issue.state === 'closed' && issue.totalTimeSpent === 0 ? 'opacity-50' : ''}`}>
                                             {issue.timeEstimate === 0 ?
                                                 (issue.totalTimeSpent > 0 ? '+∞%' : '0%') :
                                                 `${issue.difference > 0 ? '+' : ''}${issue.difference.toFixed(CHART_CONFIG.DECIMAL_PLACES)}%`}
