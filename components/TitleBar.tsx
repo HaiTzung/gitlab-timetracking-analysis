@@ -12,19 +12,33 @@ export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
 
     const handleCsvExport = () => {
         if (!ctx) return;
-        const header = 'Benutzer,Datum,Stunden,Issue,Kategorie\n';
-        const rows = ctx.timelogs.map(t => {
-            const category = t.issue?.labels?.nodes?.find(l => l.title.startsWith('category::'))?.title ?? '';
-            const hours = (t.timeSpent / 3600).toFixed(2);
-            const date = t.spentAt ? t.spentAt.slice(0, 10) : '';
-            const title = (t.issue?.title ?? '').replace(/"/g, '""');
-            return `"${t.user.username}","${date}","${hours}","${title}","${category}"`;
-        }).join('\n');
+
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const recent = ctx.timelogs.filter(t =>
+            t.spentAt && new Date(t.spentAt) >= sevenDaysAgo
+        );
+
+        const header = 'Benutzer,Anzeigename,Datum,Stunden,Issue-Nr,Issue-Titel,Kategorie,Geschätzt (h),Gesamt gebucht (h)\n';
+        const rows = recent
+            .sort((a, b) => a.spentAt.localeCompare(b.spentAt))
+            .map(t => {
+                const category = t.issue?.labels?.nodes?.find(l => l.title.startsWith('category::'))?.title ?? '';
+                const hours = (t.timeSpent / 3600).toFixed(2);
+                const date = t.spentAt.slice(0, 10);
+                const title = (t.issue?.title ?? '').replace(/"/g, '""');
+                const iid = t.issue?.iid ?? '';
+                const estimated = t.issue?.timeEstimate ? (t.issue.timeEstimate / 3600).toFixed(2) : '';
+                const totalSpent = t.issue?.totalTimeSpent ? (t.issue.totalTimeSpent / 3600).toFixed(2) : '';
+                return `"${t.user.username}","${t.user.name}","${date}","${hours}","${iid}","${title}","${category}","${estimated}","${totalSpent}"`;
+            }).join('\n');
+
         const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `timelogs-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.download = `timelogs-last7days-${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     };

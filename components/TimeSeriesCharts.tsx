@@ -33,8 +33,8 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprintStart" />
                             <YAxis />
-                            <Tooltip formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS_PER_WEEK]} />
-                            <Bar dataKey="totalHours" fill="#82ca9d" name={TOOLTIP_LABELS.HOURS_PER_WEEK} />
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]} />
+                            <Bar dataKey="totalHours" fill="#3b82f6" name={TOOLTIP_LABELS.HOURS_PER_WEEK} />
                             <ReferenceLine 
                                 y={projectMetrics.averageVelocity} 
                                 stroke="red" 
@@ -57,7 +57,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprint" />
                             <YAxis />
-                            <Tooltip 
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
                                 formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.TOTAL_HOURS]}
                             />
                             <Area 
@@ -80,9 +80,9 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprintStart" />
                             <YAxis />
-                            <Tooltip 
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 labelFormatter={(value) => `Sprint ${value}`}
-                                formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS]}
+                                formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}
                             />
                             <Legend />
                             {Object.keys(projectMetrics.sprintData[0]?.userHours || {}).map((user, index) => (
@@ -116,22 +116,28 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             <YAxis 
                                 label={{ value: TOOLTIP_LABELS.HOURS, angle: -90, position: 'insideLeft' }}
                             />
-                            <Tooltip 
-                                formatter={(value: number) => [`${value}h`, TOOLTIP_LABELS.HOURS]}
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                formatter={(value: number, name: string) => [`${value}h`, name]}
                                 labelFormatter={(value) => `Kalenderwoche ${value.split(' ')[1]}`}
                             />
                             <Legend />
-                            {barData.map((entry, index) => (
-                                <Line
-                                    key={index}
-                                    type="basis"
-                                    dataKey={entry.name}
-                                    stroke={TEAM_COLORS[index % TEAM_COLORS.length]}
-                                    strokeWidth={3}
-                                    dot={false}
-                                    name={entry.name}
-                                />
-                            ))}
+                            {barData.map((entry, index) => {
+                                const color = TEAM_COLORS[index % TEAM_COLORS.length];
+                                const userPoints = lineData.filter(d => d[entry.name] != null && d[entry.name] !== 0);
+                                const isSinglePoint = userPoints.length === 1;
+                                return (
+                                    <Line
+                                        key={index}
+                                        type="monotone"
+                                        dataKey={entry.name}
+                                        stroke={color}
+                                        strokeWidth={3}
+                                        dot={isSinglePoint ? { r: 5, fill: color, strokeWidth: 0 } : false}
+                                        activeDot={{ r: 5 }}
+                                        name={entry.name}
+                                    />
+                                );
+                            })}
                             <ReferenceLine 
                                 y={projectMetrics.averageVelocity / barData.length} 
                                 stroke="red" 
@@ -154,15 +160,15 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprintStart" />
                             <YAxis />
-                            <Tooltip 
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 labelFormatter={(value) => `Sprint ${value}`}
-                                formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS]}
+                                formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}
                             />
                             <Legend />
                             {Object.keys(projectMetrics.sprintData[0]?.categoryHours || {}).map((category, index) => (
                                 <Area
                                     key={category}
-                                    type="basis"
+                                    type="monotone"
                                     dataKey={`categoryHours.${category}`}
                                     stackId="1"
                                     stroke={COLORS[index % COLORS.length]}

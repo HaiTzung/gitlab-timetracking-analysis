@@ -22,12 +22,10 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
                         <BarChart data={issueComplexityData}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis 
-                                dataKey="category" 
-                                angle={CHART_CONFIG.ANGLES.LABEL_ROTATION}
-                                textAnchor="end"
-                                height={70}
+                            <XAxis
+                                dataKey="category"
                                 interval={0}
+                                tick={{ fontSize: 12 }}
                             />
                             <YAxis 
                                 label={{ 
@@ -37,8 +35,8 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                                     style: { textAnchor: 'middle' }
                                 }}
                             />
-                            <Tooltip 
-                                formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS]}
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
+                                formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}
                                 labelFormatter={(label) => `${label}`}
                             />
                             <Legend />

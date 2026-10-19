@@ -32,8 +32,8 @@ const ProductivityAnalysis: React.FC<ProductivityAnalysisProps> = ({ productivit
                                     position: 'insideLeft' 
                                 }}
                             />
-                            <Tooltip 
-                                formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS]}
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
+                                formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}
                             />
                             <Bar 
                                 dataKey="value" 
@@ -68,8 +68,8 @@ const ProductivityAnalysis: React.FC<ProductivityAnalysisProps> = ({ productivit
                                     position: 'insideLeft' 
                                 }}
                             />
-                            <Tooltip 
-                                formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS]}
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
+                                formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}
                             />
                             <Bar 
                                 dataKey="value" 

@@ -52,7 +52,7 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({ pieData, barData,
                                 data={pieData}
                                 outerRadius={100}
                                 cursor="pointer"
-                                onClick={(entry) => onCategorySelect(selectedCategory === entry.name ? null : entry.name)}
+                                onClick={(data) => onCategorySelect(selectedCategory === data.name ? null : data.name)}
                                 label={({
                                             name,
                                             value
@@ -65,8 +65,8 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({ pieData, barData,
                                     />
                                 ))}
                             </Pie>
-                            <Tooltip
-                                formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS]}/>
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}/>
                             <Legend/>
                         </PieChart>
                     </ResponsiveContainer>
@@ -80,8 +80,8 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({ pieData, barData,
                             <CartesianGrid strokeDasharray="3 3"/>
                             <XAxis dataKey="name"/>
                             <YAxis/>
-                            <Tooltip
-                                formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS]}/>
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}/>
                             <Legend/>
                             <Bar dataKey="value" fill="#8884d8"/>
                         </BarChart>

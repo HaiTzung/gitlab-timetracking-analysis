@@ -2,7 +2,7 @@
 
 import React, {useState, useEffect} from 'react';
 import axios from 'axios';
-import { DashboardContext } from '@/context/DashboardContext';
+import { useDashboardContextSetter } from '@/context/DashboardContext';
 import { startOfWeek, format, eachDayOfInterval, startOfMonth, endOfMonth, addMonths, subMonths, getDay, getWeek, addWeeks, subWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -49,7 +49,9 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const totalFetchCount = TEAM_MEMBERS.length + 1; // +1 for issues
 
-    const REFRESH_INTERVAL_MS = Number(process.env.NEXT_PUBLIC_REFRESH_INTERVAL ?? 300) * 1000;
+    const rawInterval = Number(process.env.NEXT_PUBLIC_REFRESH_INTERVAL ?? 300);
+    const REFRESH_INTERVAL_MS = Number.isFinite(rawInterval) && rawInterval > 0 ? rawInterval * 1000 : 300_000;
+    const setToolbarState = useDashboardContextSetter();
 
     const fetchAllIssues = async (): Promise<void> => {
         try {
@@ -101,6 +103,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         } catch (err) {
             setError(ERROR_MESSAGES.FETCH_ISSUES);
             console.error('Error fetching issues:', err);
+            throw err;
         }
     };
 
@@ -165,6 +168,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         } catch (err) {
             setError(`Error fetching timelogs for user ${username}`);
             console.error(`Error fetching timelogs for user ${username}:`, err);
+            throw err;
         }
     };
 
@@ -215,6 +219,16 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         }, REFRESH_INTERVAL_MS);
         return () => clearInterval(id);
     }, [autoRefresh, REFRESH_INTERVAL_MS]);
+
+    useEffect(() => {
+        setToolbarState({
+            lastRefreshed,
+            autoRefresh,
+            refreshIntervalMs: REFRESH_INTERVAL_MS,
+            timelogs,
+            onToggleAutoRefresh: () => setAutoRefresh(prev => !prev),
+        });
+    }, [lastRefreshed, autoRefresh, timelogs, REFRESH_INTERVAL_MS]);
 
     const processChartData = (timelogs: Timelog[], issues: Issue[]) => {
         // === 1. Piechart (Kategorie-Zeiten gesamt) ===
@@ -641,13 +655,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     );
 
     return (
-        <DashboardContext.Provider value={{
-            lastRefreshed,
-            autoRefresh,
-            refreshIntervalMs: REFRESH_INTERVAL_MS,
-            timelogs,
-            onToggleAutoRefresh: () => setAutoRefresh(prev => !prev),
-        }}>
         <div className="space-y-10">
             {/* Filter chip */}
             {selectedCategory && (
@@ -708,7 +715,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             />
 
         </div>
-        </DashboardContext.Provider>
     );
 };
 

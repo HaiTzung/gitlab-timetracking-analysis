@@ -39,7 +39,7 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
                 <div className="bg-green-50 p-4 rounded-lg">
                     <h4 className="text-sm font-medium text-green-800 mb-2">{KPI_LABELS.MAIN_FOCUS}</h4>
                     {(() => {
-                        const mainCategory = projectMetrics.categoryDistribution
+                        const mainCategory = [...projectMetrics.categoryDistribution]
                             .sort((a, b) => b.hours - a.hours)[0];
                         return (
                             <>

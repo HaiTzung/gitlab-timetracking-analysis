@@ -51,12 +51,10 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
                         <BarChart data={averageTeamMembersData}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis 
-                                dataKey="category" 
-                                angle={CHART_CONFIG.ANGLES.LABEL_ROTATION}
-                                textAnchor="end"
-                                height={70}
+                            <XAxis
+                                dataKey="category"
                                 interval={0}
+                                tick={{ fontSize: 12 }}
                             />
                             <YAxis 
                                 label={{ 
@@ -67,7 +65,7 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
                                 }}
                                 domain={[0, 'dataMax + 1']}
                             />
-                            <Tooltip 
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
                                 formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}`, TOOLTIP_LABELS.TEAM_MEMBERS]}
                                 labelFormatter={(label) => `${label}`}
                             />

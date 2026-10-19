@@ -62,18 +62,9 @@ const IssueTimeAnalysis: React.FC<IssueTimeAnalysisProps> = ({ issues }) => {
     });
 
     // Sort issues: first by actual time (descending), then by infinite deviation, then by absolute deviation
-    const sortedIssues = issuesWithDeviation.sort((a, b) => {
-        // First priority: issues with actual time
-        if (a.totalTimeSpent > 0 && b.totalTimeSpent === 0) return -1;
-        if (a.totalTimeSpent === 0 && b.totalTimeSpent > 0) return 1;
-        
-        // Second priority: infinite deviation (no estimate but actual time)
-        if (a.difference === Infinity && b.difference !== Infinity) return -1;
-        if (a.difference !== Infinity && b.difference === Infinity) return 1;
-        
-        // Third priority: absolute deviation
-        return Math.abs(b.difference) - Math.abs(a.difference);
-    });
+    const sortedIssues = issuesWithDeviation.sort((a, b) =>
+        Number(b.iid) - Number(a.iid)
+    );
 
     // Calculate category comparison data
     const categoryComparison = Object.values(CATEGORIES).map(category => {
@@ -121,7 +112,7 @@ const IssueTimeAnalysis: React.FC<IssueTimeAnalysisProps> = ({ issues }) => {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="category" />
                         <YAxis />
-                        <Tooltip 
+                        <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
                             formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS]}
                         />
                         <Legend />
@@ -139,7 +130,7 @@ const IssueTimeAnalysis: React.FC<IssueTimeAnalysisProps> = ({ issues }) => {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="category" />
                         <YAxis />
-                        <Tooltip 
+                        <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
                             formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}%`, TOOLTIP_LABELS.DEVIATION]}
                         />
                         <Bar dataKey="averageDeviation" fill="#ffc658" name="Durchschnittliche Abweichung (%)" />
@@ -175,7 +166,13 @@ const IssueTimeAnalysis: React.FC<IssueTimeAnalysisProps> = ({ issues }) => {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {sortedIssues.map((issue, index) => (
+                            {sortedIssues.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-400">
+                                        Keine Issues gefunden
+                                    </td>
+                                </tr>
+                            ) : sortedIssues.map((issue, index) => (
                                 <tr key={index} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${issue.totalTimeSpent === 0 ? 'line-through text-gray-400' : ''}`}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                         {index + 1}

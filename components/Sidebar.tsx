@@ -21,34 +21,43 @@ export default function Sidebar({ open }: SidebarProps) {
     const [activeId, setActiveId] = useState<string>('');
 
     useEffect(() => {
-        const observers: IntersectionObserver[] = [];
-        const visibleSections = new Map<string, number>();
+        if (!open) return;
 
-        NAV_ITEMS.forEach(({ id }) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const observer = new IntersectionObserver(
-                ([entry]) => {
-                    if (entry.isIntersecting) {
-                        visibleSections.set(id, entry.intersectionRatio);
-                    } else {
-                        visibleSections.delete(id);
-                    }
-                    if (visibleSections.size > 0) {
-                        const topmost = [...visibleSections.entries()].reduce((a, b) =>
-                            a[1] > b[1] ? a : b
-                        );
-                        setActiveId(topmost[0]);
-                    }
-                },
-                { threshold: [0, 0.25, 0.5, 0.75, 1] }
-            );
-            observer.observe(el);
-            observers.push(observer);
+        let rafId: number;
+        let observers: IntersectionObserver[] = [];
+
+        rafId = requestAnimationFrame(() => {
+            const visibleSections = new Map<string, number>();
+
+            NAV_ITEMS.forEach(({ id }) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const observer = new IntersectionObserver(
+                    ([entry]) => {
+                        if (entry.isIntersecting) {
+                            visibleSections.set(id, entry.intersectionRatio);
+                        } else {
+                            visibleSections.delete(id);
+                        }
+                        if (visibleSections.size > 0) {
+                            const topmost = [...visibleSections.entries()].reduce((a, b) =>
+                                a[1] > b[1] ? a : b
+                            );
+                            setActiveId(topmost[0]);
+                        }
+                    },
+                    { threshold: [0, 0.25, 0.5, 0.75, 1] }
+                );
+                observer.observe(el);
+                observers.push(observer);
+            });
         });
 
-        return () => observers.forEach(o => o.disconnect());
-    }, []);
+        return () => {
+            cancelAnimationFrame(rafId);
+            observers.forEach(o => o.disconnect());
+        };
+    }, [open]);
 
     return (
         <aside
