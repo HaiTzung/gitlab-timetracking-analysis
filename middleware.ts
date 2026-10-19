@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/api/auth'];
+const PUBLIC_PATHS = ['/login', '/api/auth', '/api/health'];
 const COOKIE_NAME = 'dashboard_auth';
 
 export function middleware(request: NextRequest) {
