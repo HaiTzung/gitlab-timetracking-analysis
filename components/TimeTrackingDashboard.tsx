@@ -43,6 +43,7 @@ import IssueAnalysis from "./IssueAnalysis";
 import IssueDashboard from "./IssueDashboard";
 import CategoryDashboard from "./CategoryDashboard";
 import DetailedActivity from "./DetailedActivity";
+import Leaderboard from "./Leaderboard";
 
 // Import types
 import {
@@ -111,6 +112,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                                         milestone { title dueDate }
                                         iteration { title startDate dueDate }
                                         assignees { nodes { name username } }
+                                        author { username }
                                         labels { nodes { title } }
                                         timeEstimate
                                         totalTimeSpent
@@ -971,6 +973,13 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       />
 
       <CategoryDashboard issues={issues} timelogs={timelogs} />
+
+      <Leaderboard
+        timelogs={timelogs}
+        issues={issues}
+        teamMembers={[...TEAM_MEMBERS]}
+        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
+      />
     </div>
   );
 };

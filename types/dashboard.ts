@@ -14,6 +14,7 @@ export interface Issue {
     milestone: { title: string; dueDate: string | null } | null;
     iteration: { title: string; startDate: string; dueDate: string } | null;
     assignees: { nodes: Array<{ name: string; username: string }> };
+    author: { username: string } | null;
     labels: {
         nodes: Array<{title: string}>;
     };

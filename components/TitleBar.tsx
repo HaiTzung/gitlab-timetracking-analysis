@@ -70,6 +70,16 @@ export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
                     {projectName}
                 </h1>
 
+                <span className="text-gray-300 text-lg font-light">×</span>
+
+                {/* Client logo */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                    src="https://www.uniliga.gg/wp-content/uploads/2026/08/uniliga_wordmarkicon_blue.svg"
+                    alt="Uniliga"
+                    className="h-6 w-auto"
+                />
+
                 <div className="flex-1" />
 
                 {ctx && (

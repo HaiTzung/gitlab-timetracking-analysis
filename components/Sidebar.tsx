@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { id: "produktivitatsanalyse", label: "Produktivitätsanalyse" },
   { id: "team-zusammenarbeit", label: "Team Zusammenarbeit" },
   { id: "kategorie-analyse", label: "Kategorie-Analyse" },
+  { id: "leaderboard", label: "Leaderboard" },
 ];
 
 const PRESETS: { label: string; value: TimeWindow }[] = [
