@@ -5,9 +5,37 @@ export interface Issue {
     category: string;
     iid: string;
     state: string;
+    webUrl: string;
+    createdAt: string;
+    closedAt: string | null;
+    dueDate: string | null;
+    weight: number | null;
+    healthStatus: string | null;
+    milestone: { title: string; dueDate: string | null } | null;
+    iteration: { title: string; startDate: string; dueDate: string } | null;
+    assignees: { nodes: Array<{ name: string; username: string }> };
     labels: {
         nodes: Array<{title: string}>;
     };
+    epic: { iid: string } | null;
+}
+
+export interface Epic {
+    id: string;
+    iid: string;
+    title: string;
+    state: string;
+    webUrl: string;
+    startDate: string | null;
+    dueDate: string | null;
+    descendantCounts: {
+        openedIssues: number;
+        closedIssues: number;
+        openedEpics: number;
+        closedEpics: number;
+    } | null;
+    parent: { iid: string } | null;
+    issues: { nodes: Array<{ iid: string }> };
 }
 
 export interface Timelog {

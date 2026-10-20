@@ -27,11 +27,11 @@ import TeamAndCategories from './TeamAndCategories';
 import ProductivityAnalysis from './ProductivityAnalysis';
 import TeamCollaboration from './TeamCollaboration';
 import IssueAnalysis from './IssueAnalysis';
-import IssueTimeAnalysis from './IssueTimeAnalysis';
+import IssueDashboard from './IssueDashboard';
 import DetailedActivity from './DetailedActivity';
 
 // Import types
-import { Issue, Timelog, ProjectMetrics, ProductivityPatterns, CollaborationData, AverageTeamMembersData, IssueComplexityData, HeatmapData } from '../types/dashboard';
+import { Issue, Epic, Timelog, ProjectMetrics, ProductivityPatterns, CollaborationData, AverageTeamMembersData, IssueComplexityData, HeatmapData } from '../types/dashboard';
 
 interface TimeTrackingDashboardProps {
     startDate: Date;
@@ -41,6 +41,7 @@ interface TimeTrackingDashboardProps {
 const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate, endDate }) => {
     const [timelogs, setTimelogs] = useState<Timelog[]>([]);
     const [issues, setIssues] = useState<Issue[]>([]);
+    const [epics, setEpics] = useState<Epic[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadedCount, setLoadedCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
@@ -50,7 +51,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
     const [customStart, setCustomStart] = useState<Date | null>(null);
     const [customEnd, setCustomEnd] = useState<Date | null>(null);
-    const totalFetchCount = TEAM_MEMBERS.length + 1; // +1 for issues
+    const totalFetchCount = TEAM_MEMBERS.length + 2; // +1 for issues, +1 for epics
 
     const rawInterval = Number(process.env.NEXT_PUBLIC_REFRESH_INTERVAL ?? 300);
     const REFRESH_INTERVAL_MS = Number.isFinite(rawInterval) && rawInterval > 0 ? rawInterval * 1000 : 300_000;
@@ -74,9 +75,19 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                                         title
                                         iid
                                         state
+                                        webUrl
+                                        createdAt
+                                        closedAt
+                                        dueDate
+                                        weight
+                                        healthStatus
+                                        milestone { title dueDate }
+                                        iteration { title startDate dueDate }
+                                        assignees { nodes { name username } }
                                         labels { nodes { title } }
                                         timeEstimate
                                         totalTimeSpent
+                                        epic { iid }
                                     }
                                     pageInfo {
                                         hasNextPage
@@ -102,12 +113,75 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             }
 
             console.log('Total issues fetched:', allIssues.length);
+            const withEpic = allIssues.filter(i => (i as any).epic?.iid);
+            console.log('Issues with epic.iid:', withEpic.length, 'sample:', withEpic.slice(0, 3).map(i => ({ iid: i.iid, epicIid: (i as any).epic?.iid })));
             setIssues(allIssues);
             setLoadedCount(prev => prev + 1);
         } catch (err) {
             setError(ERROR_MESSAGES.FETCH_ISSUES);
             console.error('Error fetching issues:', err);
             throw err;
+        }
+    };
+
+    const fetchAllEpics = async (): Promise<void> => {
+        try {
+            let allEpics: Epic[] = [];
+            let hasNextPage = true;
+            let endCursor: string | null = null;
+
+            while (hasNextPage) {
+                const response: any = await axios.post(
+                    GITLAB_CONFIG.API_URL,
+                    {
+                        query: `
+                        {
+                            group(fullPath: "${GITLAB_CONFIG.GROUP_PATH}") {
+                                epics(first: 100, after: ${endCursor ? `"${endCursor}"` : 'null'}) {
+                                    nodes {
+                                        id
+                                        iid
+                                        title
+                                        state
+                                        webUrl
+                                        startDate
+                                        dueDate
+                                        descendantCounts {
+                                            openedIssues
+                                            closedIssues
+                                            openedEpics
+                                            closedEpics
+                                        }
+                                        parent { iid }
+                                        issues(first: 100) {
+                                            nodes { iid }
+                                        }
+                                    }
+                                    pageInfo {
+                                        hasNextPage
+                                        endCursor
+                                    }
+                                }
+                            }
+                        }
+                    `
+                    },
+                    { headers: { 'Content-Type': 'application/json' } }
+                );
+
+                const epicsData: any = response.data.data.group.epics;
+                allEpics = [...allEpics, ...epicsData.nodes];
+                hasNextPage = epicsData.pageInfo.hasNextPage;
+                endCursor = epicsData.pageInfo.endCursor;
+            }
+
+            setEpics(allEpics);
+            console.log('Total epics fetched:', allEpics.length, 'sample iids:', allEpics.slice(0, 5).map(e => e.iid));
+            console.log('Epics with issues.nodes:', allEpics.filter(e => e.issues?.nodes?.length > 0).length);
+            setLoadedCount(prev => prev + 1);
+        } catch (err) {
+            console.error('Error fetching epics:', err);
+            setLoadedCount(prev => prev + 1); // non-fatal: continue without epics
         }
     };
 
@@ -182,11 +256,13 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             setError(null);
             setTimelogs([]);
             setIssues([]);
+            setEpics([]);
             setLoadedCount(0);
 
             try {
                 await Promise.all([
                     fetchAllIssues(),
+                    fetchAllEpics(),
                     ...TEAM_MEMBERS.map(username => fetchTimelogsForUser(username))
                 ]);
                 setLastRefreshed(new Date());
@@ -208,10 +284,12 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             setError(null);
             setTimelogs([]);
             setIssues([]);
+            setEpics([]);
             setLoadedCount(0);
             try {
                 await Promise.all([
                     fetchAllIssues(),
+                    fetchAllEpics(),
                     ...TEAM_MEMBERS.map(username => fetchTimelogsForUser(username))
                 ]);
                 setLastRefreshed(new Date());
@@ -284,7 +362,16 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             }
         });
 
-        const lineData = Object.entries(weeklyMap).map(([week, users]) => {
+        const lineData = Object.entries(weeklyMap)
+            .sort(([a], [b]) => {
+                // Parse "KW 42 2026" back to a sortable date: year * 100 + week
+                const parse = (s: string) => {
+                    const [, kw, yr] = s.split(' ');
+                    return Number(yr) * 100 + Number(kw);
+                };
+                return parse(a) - parse(b);
+            })
+            .map(([week, users]) => {
             const row: Record<string, any> = { week };
             Object.entries(users).forEach(([user, time]) => {
                 row[user] = time / TIME_CONFIG.SECONDS_PER_HOUR;
@@ -739,8 +826,10 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                 COLORS={[...COLORS.PRIMARY]}
             />
 
-            <IssueTimeAnalysis
-                issues={windowIssues}
+            <IssueDashboard
+                issues={issues}
+                epics={epics}
+                timelogs={windowTimelogs}
             />
 
         </div>

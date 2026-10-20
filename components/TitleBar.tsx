@@ -1,64 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useDashboardContext, TimeWindow } from '@/context/DashboardContext';
+import { useDashboardContext } from '@/context/DashboardContext';
 
 interface TitleBarProps {
     onMenuToggle: () => void;
     projectName: string;
 }
 
-const PRESETS: { label: string; value: TimeWindow }[] = [
-    { label: 'Alle', value: 'all' },
-    { label: '7 Tage', value: '7d' },
-    { label: '14 Tage', value: '14d' },
-    { label: 'Monat', value: 'month' },
-];
-
-function toInputDate(d: Date | null): string {
-    if (!d) return '';
-    return d.toISOString().slice(0, 10);
-}
-
-function formatWindowLabel(window: TimeWindow, customStart: Date | null, customEnd: Date | null): string {
-    const fmt = (d: Date) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const now = new Date();
-    if (window === '7d')    return `${fmt(new Date(now.getTime() - 7 * 86400000))} – ${fmt(now)}`;
-    if (window === '14d')   return `${fmt(new Date(now.getTime() - 14 * 86400000))} – ${fmt(now)}`;
-    if (window === 'month') return `${fmt(new Date(now.getFullYear(), now.getMonth(), 1))} – ${fmt(now)}`;
-    if (window === 'custom' && customStart) return `${fmt(customStart)} – ${customEnd ? fmt(customEnd) : fmt(now)}`;
-    return '';
-}
-
 export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
     const ctx = useDashboardContext();
-    const [customOpen, setCustomOpen] = useState(false);
-    const [draftStart, setDraftStart] = useState('');
-    const [draftEnd, setDraftEnd] = useState('');
-    const [localWindow, setLocalWindow] = useState<TimeWindow>('all');
-
-    const activeWindow = ctx?.timeWindow ?? localWindow;
-
-    const handlePreset = (w: TimeWindow) => {
-        setLocalWindow(w);
-        ctx?.onSetTimeWindow(w);
-        if (w !== 'custom') setCustomOpen(false);
-    };
-
-    const handleCustomOpen = () => {
-        setDraftStart(toInputDate(ctx?.customStart ?? null));
-        setDraftEnd(toInputDate(ctx?.customEnd ?? null));
-        setCustomOpen(true);
-        setLocalWindow('custom');
-        ctx?.onSetTimeWindow('custom');
-    };
-
-    const handleCustomApply = () => {
-        const start = draftStart ? new Date(draftStart) : null;
-        const end = draftEnd ? new Date(draftEnd + 'T23:59:59') : null;
-        ctx?.onSetCustomDates(start, end);
-        setCustomOpen(false);
-    };
 
     const handleCsvExport = () => {
         if (!ctx) return;
@@ -103,7 +53,6 @@ export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
 
     return (
         <header className="flex-shrink-0 bg-white border-b border-gray-200 shadow-sm z-20">
-            {/* Main bar */}
             <div className="h-14 flex items-center px-4 gap-4">
                 <button
                     onClick={onMenuToggle}
@@ -120,39 +69,6 @@ export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
                 <h1 className="text-base font-semibold text-gray-800 tracking-tight">
                     {projectName}
                 </h1>
-
-                {/* Time window presets — always visible */}
-                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 ml-4">
-                    {PRESETS.map(p => (
-                        <button
-                            key={p.value}
-                            onClick={() => handlePreset(p.value)}
-                            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                                activeWindow === p.value
-                                    ? 'bg-white text-gray-800 shadow-sm'
-                                    : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                        >
-                            {p.label}
-                        </button>
-                    ))}
-                    <button
-                        onClick={handleCustomOpen}
-                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                            activeWindow === 'custom'
-                                ? 'bg-white text-gray-800 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                    >
-                        📅 Benutzerdefiniert
-                    </button>
-                </div>
-
-                {activeWindow !== 'all' && (
-                    <span className="text-xs text-gray-500 hidden sm:block">
-                        {formatWindowLabel(activeWindow, ctx?.customStart ?? null, ctx?.customEnd ?? null)}
-                    </span>
-                )}
 
                 <div className="flex-1" />
 
@@ -189,38 +105,6 @@ export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
                     </div>
                 )}
             </div>
-
-            {/* Custom date picker row */}
-            {customOpen && (
-                <div className="border-t border-gray-100 px-4 py-2 flex items-center gap-3 bg-gray-50 text-sm">
-                    <span className="text-xs text-gray-500 font-medium">Von</span>
-                    <input
-                        type="date"
-                        value={draftStart}
-                        onChange={e => setDraftStart(e.target.value)}
-                        className="border border-gray-300 rounded-md px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="text-xs text-gray-500 font-medium">Bis</span>
-                    <input
-                        type="date"
-                        value={draftEnd}
-                        onChange={e => setDraftEnd(e.target.value)}
-                        className="border border-gray-300 rounded-md px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <button
-                        onClick={handleCustomApply}
-                        className="bg-blue-600 text-white rounded-md px-3 py-1 text-xs font-medium hover:bg-blue-700 transition-colors"
-                    >
-                        Übernehmen
-                    </button>
-                    <button
-                        onClick={() => { setCustomOpen(false); ctx?.onSetTimeWindow('all'); }}
-                        className="text-xs text-gray-400 hover:text-gray-600"
-                    >
-                        Abbrechen
-                    </button>
-                </div>
-            )}
         </header>
     );
 }
