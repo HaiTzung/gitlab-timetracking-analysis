@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { startOfWeek, endOfWeek, addWeeks, format, parseISO } from 'date-fns';
+import React, { useState, useEffect } from 'react';
+import { startOfWeek, endOfWeek, addWeeks, format, parseISO, differenceInWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Timelog } from '@/types/dashboard';
 import { CATEGORIES, COLORS } from '@/config/dashboardConfig';
@@ -53,6 +53,14 @@ function getCatColor(strippedCat: string): string {
     return COLORS.CATEGORY[fullKey] ?? '#94a3b8';
 }
 
+function buildShareUrl(weekOffset: number, showAll: boolean): string {
+    if (typeof window === 'undefined') return '';
+    const base = window.location.origin + window.location.pathname;
+    if (showAll) return `${base}?week=all#zeitaufwand-tabelle`;
+    const monday = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
+    return `${base}?week=${format(monday, 'yyyy-MM-dd')}#zeitaufwand-tabelle`;
+}
+
 function buildMarkdown(
     users: string[],
     categories: string[],
@@ -62,6 +70,7 @@ function buildMarkdown(
     grandTotal: number,
     timeLabel: string,
     rangeLabel: string,
+    shareUrl: string,
 ): string {
     const col = (s: string, w: number) => s.padEnd(w);
     const colR = (s: string, w: number) => s.padStart(w);
@@ -102,6 +111,7 @@ function buildMarkdown(
         ``,
         `**Zeitraum:** ${timeLabel} (${rangeLabel})`,
         `**Exportiert:** ${format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de })}`,
+        ...(shareUrl ? [`**Link:** ${shareUrl}`] : []),
         ``,
         header,
         sep(),
@@ -117,6 +127,29 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
     const [weekOffset, setWeekOffset] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const [copied, setCopied] = useState(false);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const weekParam = params.get('week');
+        if (!weekParam) return;
+        if (weekParam === 'all') {
+            setShowAll(true);
+            requestAnimationFrame(() => {
+                document.getElementById('zeitaufwand-tabelle')?.scrollIntoView({ behavior: 'smooth' });
+            });
+            return;
+        }
+        const targetDate = parseISO(weekParam);
+        if (isNaN(targetDate.getTime())) return;
+        const targetMonday = startOfWeek(targetDate, { weekStartsOn: 1 });
+        const currentMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
+        const diff = differenceInWeeks(targetMonday, currentMonday);
+        setWeekOffset(diff);
+        setShowAll(false);
+        requestAnimationFrame(() => {
+            document.getElementById('zeitaufwand-tabelle')?.scrollIntoView({ behavior: 'smooth' });
+        });
+    }, []);
 
     const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
@@ -147,7 +180,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
 
     const handleExportMarkdown = () => {
         if (users.length === 0) return;
-        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel);
+        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel, buildShareUrl(weekOffset, showAll));
         const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -159,7 +192,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
 
     const handleCopyMarkdown = () => {
         if (users.length === 0) return;
-        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel);
+        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel, buildShareUrl(weekOffset, showAll));
         navigator.clipboard.writeText(md).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
@@ -167,7 +200,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
     };
 
     return (
-        <section>
+        <section id="zeitaufwand-tabelle">
             <h3 className="text-sm font-semibold text-gray-700 mb-1">Zeitaufwand pro Person & Kategorie</h3>
             <p className="text-xs text-gray-400 mb-3">Gebuchte Stunden nach Teammitglied und Kategorie</p>
 
