@@ -135,7 +135,15 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
         if (weekParam === 'all') {
             setShowAll(true);
             requestAnimationFrame(() => {
-                document.getElementById('zeitaufwand-tabelle')?.scrollIntoView({ behavior: 'smooth' });
+                (() => {
+                const target = document.getElementById('zeitaufwand-tabelle');
+                const scroller = document.getElementById('main-scroll');
+                if (target && scroller) {
+                  const scrollerTop = scroller.getBoundingClientRect().top;
+                  const targetTop = target.getBoundingClientRect().top;
+                  scroller.scrollTop += targetTop - scrollerTop - 16;
+                }
+              })();
             });
             return;
         }
@@ -147,7 +155,15 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
         setWeekOffset(diff);
         setShowAll(false);
         requestAnimationFrame(() => {
-            document.getElementById('zeitaufwand-tabelle')?.scrollIntoView({ behavior: 'smooth' });
+            (() => {
+                const target = document.getElementById('zeitaufwand-tabelle');
+                const scroller = document.getElementById('main-scroll');
+                if (target && scroller) {
+                  const scrollerTop = scroller.getBoundingClientRect().top;
+                  const targetTop = target.getBoundingClientRect().top;
+                  scroller.scrollTop += targetTop - scrollerTop - 16;
+                }
+              })();
         });
     }, []);
 
