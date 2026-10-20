@@ -12,6 +12,7 @@ const NAV_ITEMS = [
     { id: 'team-zusammenarbeit',    label: 'Team Zusammenarbeit' },
     { id: 'issue-analyse',          label: 'Issue Analyse' },
     { id: 'issue-zeitanalyse',      label: 'Issues' },
+    { id: 'kategorie-analyse',      label: 'Kategorie-Analyse' },
 ];
 
 const PRESETS: { label: string; value: TimeWindow }[] = [

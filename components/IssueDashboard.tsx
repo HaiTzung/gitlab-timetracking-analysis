@@ -1,19 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Issue, Epic, Timelog } from '@/types/dashboard';
+import { Issue, Epic } from '@/types/dashboard';
 import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG } from '@/config/dashboardConfig';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-    LineChart, Line, ScatterChart, Scatter, ReferenceLine, ZAxis, Cell
 } from 'recharts';
-import { format, differenceInDays, eachWeekOfInterval, parseISO, startOfWeek, addDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 interface IssueDashboardProps {
     issues: Issue[];
     epics: Epic[];
-    timelogs: Timelog[];
 }
 
 type StateFilter = 'opened' | 'closed' | 'all';
@@ -61,6 +59,27 @@ function deviationBadge(estimated: number, spent: number) {
     return <span className={`inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium ${color}`}>{label}</span>;
 }
 
+function stateBadge(state: string) {
+    if (state === 'opened') return (
+        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-green-50 text-green-700 border border-green-200 rounded px-1.5 py-0.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            Offen
+        </span>
+    );
+    if (state === 'closed') return (
+        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-gray-100 text-gray-500 border border-gray-200 rounded px-1.5 py-0.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+            Geschlossen
+        </span>
+    );
+    return (
+        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 rounded px-1.5 py-0.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+            {state}
+        </span>
+    );
+}
+
 function AssigneeChips({ assignees }: { assignees: Issue['assignees'] }) {
     if (!assignees?.nodes?.length) return <span className="text-gray-300 text-xs">—</span>;
     return (
@@ -85,24 +104,23 @@ function IssueRow({ issue, depth = 0 }: { issue: Issue; depth?: number }) {
 
     return (
         <div
-            className={`px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0 ${isClosed ? 'opacity-60' : ''}`}
-            style={{ paddingLeft: `${12 + depth * 20}px` }}
+            className="py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
+            style={{ paddingLeft: `${16 + depth * 20}px`, paddingRight: '12px' }}
         >
-            {/* Main row */}
             <div className="flex items-center gap-3">
-                <span className={`flex-shrink-0 w-2 h-2 rounded-full ${isClosed ? 'bg-gray-400' : 'bg-green-500'}`} />
-                <span className="text-gray-400 text-xs font-mono flex-shrink-0 w-10">#{issue.iid}</span>
+                <span className="text-gray-300 text-xs font-mono flex-shrink-0 w-10">#{issue.iid}</span>
                 <a href={issue.webUrl || `${GITLAB_CONFIG.ISSUE_BASE_URL}/${issue.iid}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="flex-1 text-gray-800 hover:text-blue-600 hover:underline truncate font-medium">
+                    className="flex-1 text-gray-700 hover:text-blue-600 hover:underline truncate font-medium">
                     {issue.title}
                 </a>
+                {stateBadge(issue.state)}
                 {category && (
-                    <span className="hidden lg:inline-flex flex-shrink-0 text-xs bg-purple-100 text-purple-700 rounded-full px-2 py-0.5 truncate max-w-32">
+                    <span className="hidden lg:inline-flex flex-shrink-0 text-xs bg-purple-50 text-purple-600 border border-purple-100 rounded px-1.5 py-0.5 truncate max-w-32">
                         {category.replace('category::', '')}
                     </span>
                 )}
-                <div className="flex-shrink-0 text-xs text-gray-500 w-20 text-right hidden sm:block">
+                <div className="flex-shrink-0 text-xs text-gray-400 w-20 text-right hidden sm:block">
                     {estimated > 0 ? `${estimated.toFixed(1)}h` : '—'} / {spent > 0 ? `${spent.toFixed(1)}h` : '—'}
                 </div>
                 <div className="flex-shrink-0 w-16 hidden md:flex justify-end">
@@ -113,43 +131,42 @@ function IssueRow({ issue, depth = 0 }: { issue: Issue; depth?: number }) {
                 </div>
             </div>
 
-            {/* Metadata chips row */}
             {hasMetadata && (
-                <div className="flex flex-wrap gap-1.5 mt-1.5" style={{ paddingLeft: '26px' }}>
+                <div className="flex flex-wrap gap-1.5 mt-1.5 ml-[52px]">
                     {issue.healthStatus && health && (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5">
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-white border border-gray-200 rounded px-1.5 py-0.5">
                             <span className={`w-1.5 h-1.5 rounded-full ${health}`} />
                             {healthLabel(issue.healthStatus)}
                         </span>
                     )}
                     {issue.milestone && (
-                        <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 ${
+                        <span className={`inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 ${
                             isOverdue(issue.milestone.dueDate, isClosed)
-                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                : 'bg-orange-50 text-orange-700 border border-orange-200'
+                                ? 'bg-red-50 text-red-600 border border-red-200'
+                                : 'bg-orange-50 text-orange-600 border border-orange-200'
                         }`}>
-                            🏁 {issue.milestone.title}
+                            {issue.milestone.title}
                             {issue.milestone.dueDate && ` · ${fmtDate(issue.milestone.dueDate)}`}
                         </span>
                     )}
                     {issue.iteration && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-2 py-0.5">
-                            🔄 {issue.iteration.title}
+                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 border border-blue-100 rounded px-1.5 py-0.5">
+                            {issue.iteration.title}
                         </span>
                     )}
                     {issue.dueDate && (
-                        <span className={`inline-flex items-center gap-1 text-xs rounded-full px-2 py-0.5 ${
+                        <span className={`inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 ${
                             isOverdue(issue.dueDate, isClosed)
-                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                : 'bg-gray-50 text-gray-600 border border-gray-200'
+                                ? 'bg-red-50 text-red-600 border border-red-200'
+                                : 'bg-gray-50 text-gray-500 border border-gray-200'
                         }`}>
-                            📅 {fmtDate(issue.dueDate)}
+                            {fmtDate(issue.dueDate)}
                             {isOverdue(issue.dueDate, isClosed) && ' · Überfällig'}
                         </span>
                     )}
                     {issue.weight != null && issue.weight > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-gray-50 text-gray-600 border border-gray-200 rounded-full px-2 py-0.5">
-                            ⚖️ {issue.weight}
+                        <span className="inline-flex items-center gap-1 text-xs bg-gray-50 text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">
+                            {issue.weight}
                         </span>
                     )}
                 </div>
@@ -194,24 +211,29 @@ function EpicNode({
 
     const duePast = isOverdue(epic.dueDate, isClosed);
 
+    const bgDepth = depth === 0 ? 'bg-gray-100' : depth === 1 ? 'bg-gray-50' : 'bg-white';
+    const borderAccent = depth === 0 ? 'border-l-2 border-l-gray-400' : 'border-l-2 border-l-gray-300';
+
     return (
-        <div>
+        <div className={`${bgDepth}`}>
             <button onClick={() => setExpanded(e => !e)}
-                className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-gray-50 text-left border-b border-gray-100"
-                style={{ paddingLeft: `${12 + depth * 20}px` }}>
-                <span className="text-gray-400 text-xs w-4 flex-shrink-0">{expanded ? '▼' : '▶'}</span>
-                <span className="text-base flex-shrink-0">🗂</span>
+                className={`w-full flex items-center gap-2 py-2 hover:brightness-95 text-left border-b border-gray-200 ${borderAccent}`}
+                style={{ paddingLeft: `${12 + depth * 20}px`, paddingRight: '12px' }}>
+                <svg
+                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                    viewBox="0 0 12 12" fill="currentColor">
+                    <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         <a href={epic.webUrl} target="_blank" rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            className={`font-semibold hover:text-blue-600 hover:underline truncate ${isClosed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                            className={`font-semibold text-sm hover:text-blue-600 hover:underline truncate ${isClosed ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
                             {epic.title}
                         </a>
                     </div>
-                    {/* Epic metadata line */}
-                    {(epic.startDate || epic.dueDate) && (
+                    {(epic.startDate || epic.dueDate || epicEstH > 0) && (
                         <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
                             {epic.startDate && <span>von {fmtDate(epic.startDate)}</span>}
                             {epic.dueDate && (
@@ -250,12 +272,15 @@ function EpicNode({
 function OrphanGroup({ issues }: { issues: Issue[] }) {
     const [expanded, setExpanded] = useState(true);
     return (
-        <div>
+        <div className="bg-gray-100 border-l-2 border-l-gray-300">
             <button onClick={() => setExpanded(e => !e)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-50 text-left border-b border-gray-100">
-                <span className="text-gray-400 text-xs w-4">{expanded ? '▼' : '▶'}</span>
-                <span className="text-base">📋</span>
-                <span className="font-semibold text-gray-500 flex-1">Ohne Epic</span>
+                className="w-full flex items-center gap-2 px-3 py-2 hover:brightness-95 text-left border-b border-gray-200">
+                <svg
+                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                    viewBox="0 0 12 12" fill="currentColor">
+                    <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="font-semibold text-sm text-gray-500 flex-1">Ohne Epic</span>
                 <span className="text-xs text-gray-400 hidden sm:block">{issues.length} Issue{issues.length !== 1 ? 's' : ''}</span>
             </button>
             {expanded && issues.map(issue => (
@@ -265,277 +290,7 @@ function OrphanGroup({ issues }: { issues: Issue[] }) {
     );
 }
 
-// ─── Analytics ───────────────────────────────────────────────────────────────
-
-function buildBurndown(issues: Issue[]) {
-    if (!issues.length) return [];
-    const dates = issues.map(i => parseISO(i.createdAt));
-    const earliest = dates.reduce((a, b) => a < b ? a : b);
-    const weeks = eachWeekOfInterval({ start: earliest, end: new Date() });
-
-    return weeks.map(weekStart => {
-        const label = format(weekStart, "'KW' II/yy", { locale: de });
-        const opened = issues.filter(i => parseISO(i.createdAt) <= weekStart).length;
-        const closed = issues.filter(i => i.closedAt && parseISO(i.closedAt) <= weekStart).length;
-        return { week: label, opened, closed };
-    });
-}
-
-function buildCycleTime(issues: Issue[]) {
-    const closed = issues.filter(i => i.state === 'closed' && i.closedAt && i.createdAt);
-    const byCategory: Record<string, number[]> = {};
-    closed.forEach(i => {
-        const cat = getMainCategory(i).replace('category::', '') || 'Sonstige';
-        const days = differenceInDays(parseISO(i.closedAt!), parseISO(i.createdAt));
-        if (!byCategory[cat]) byCategory[cat] = [];
-        byCategory[cat].push(days);
-    });
-    return Object.entries(byCategory).map(([category, days]) => ({
-        category,
-        avgDays: Math.round(days.reduce((s, d) => s + d, 0) / days.length),
-        count: days.length,
-    })).sort((a, b) => b.avgDays - a.avgDays);
-}
-
-function buildScatter(issues: Issue[]) {
-    return issues
-        .filter(i => i.state === 'closed' && i.timeEstimate > 0 && i.totalTimeSpent > 0)
-        .map(i => ({
-            estimated: parseFloat((i.timeEstimate / 3600).toFixed(2)),
-            actual: parseFloat((i.totalTimeSpent / 3600).toFixed(2)),
-            title: i.title,
-            iid: i.iid,
-        }));
-}
-
-function buildAging(issues: Issue[]) {
-    const open = issues.filter(i => i.state === 'opened');
-    const buckets = [
-        { label: '< 7 Tage', count: 0 },
-        { label: '7–14 Tage', count: 0 },
-        { label: '14–30 Tage', count: 0 },
-        { label: '> 30 Tage', count: 0 },
-    ];
-    open.forEach(i => {
-        const age = differenceInDays(new Date(), parseISO(i.createdAt));
-        if (age < 7) buckets[0].count++;
-        else if (age < 14) buckets[1].count++;
-        else if (age < 30) buckets[2].count++;
-        else buckets[3].count++;
-    });
-    return buckets;
-}
-
-function buildSpentByCategory(timelogs: Timelog[]) {
-    if (!timelogs.length) return { data: [], categories: [] as string[] };
-    const byWeek = new Map<string, Record<string, number>>();
-
-    timelogs.forEach(log => {
-        const weekStart = startOfWeek(parseISO(log.spentAt), { weekStartsOn: 1 });
-        const weekKey = format(weekStart, "'KW' II/yy", { locale: de });
-        const raw = log.issue?.labels?.nodes?.find(l => CATEGORY_VALUES.includes(l.title))?.title ?? '';
-        const cat = raw.replace('category::', '') || 'Sonstige';
-        if (!byWeek.has(weekKey)) byWeek.set(weekKey, {});
-        const row = byWeek.get(weekKey)!;
-        row[cat] = (row[cat] ?? 0) + log.timeSpent / 3600;
-    });
-
-    const data = Array.from(byWeek.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([week, values]) => ({ week, ...values }));
-
-    const allCats = [...Object.values(CATEGORIES).map(c => c.replace('category::', '')), 'Sonstige'];
-    const categories = allCats.filter(c => data.some(d => (d as Record<string, unknown>)[c]));
-    return { data, categories };
-}
-
-function buildWeeklyIssueVolume(issues: Issue[]) {
-    if (!issues.length) return [];
-    const dates = issues.map(i => parseISO(i.createdAt));
-    const earliest = dates.reduce((a, b) => a < b ? a : b);
-    const weeks = eachWeekOfInterval({ start: earliest, end: new Date() }, { weekStartsOn: 1 });
-
-    return weeks.map(weekStart => {
-        const weekEnd = addDays(weekStart, 6);
-        const label = format(weekStart, "'KW' II/yy", { locale: de });
-        const opened = issues.filter(i => {
-            const d = parseISO(i.createdAt);
-            return d >= weekStart && d <= weekEnd;
-        }).length;
-        const closed = issues.filter(i => {
-            if (!i.closedAt) return false;
-            const d = parseISO(i.closedAt);
-            return d >= weekStart && d <= weekEnd;
-        }).length;
-        return { week: label, opened, closed };
-    }).filter(w => w.opened > 0 || w.closed > 0);
-}
-
-function AnalyticsSection({ issues, timelogs }: { issues: Issue[]; timelogs: Timelog[] }) {
-    const [open, setOpen] = useState(true);
-    const spentByCategory = buildSpentByCategory(timelogs);
-    const weeklyVolume = buildWeeklyIssueVolume(issues);
-    const burndown = buildBurndown(issues);
-    const cycleTime = buildCycleTime(issues);
-    const scatter = buildScatter(issues);
-    const aging = buildAging(issues);
-    const maxScatter = Math.max(...scatter.map(d => Math.max(d.estimated, d.actual)), 1);
-
-    return (
-        <div className="mt-8 border-t border-gray-200 pt-4">
-            <button onClick={() => setOpen(o => !o)}
-                className="w-full flex items-center gap-2 text-sm font-semibold text-gray-700 hover:text-gray-900 mb-4">
-                <span>{open ? '▼' : '▶'}</span>
-                <span>Analysen</span>
-            </button>
-
-            {open && (
-                <div className="grid grid-cols-1 gap-8">
-                    {/* Spent time per category per week */}
-                    {spentByCategory.data.length > 0 && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Gebuchte Stunden pro Kategorie (wöchentlich)</h4>
-                            <ResponsiveContainer width="100%" height={220}>
-                                <BarChart data={spentByCategory.data}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                                    <YAxis unit="h" />
-                                    <Tooltip
-                                        labelStyle={{ color: '#111827', fontWeight: 600 }}
-                                        formatter={(v: number, name: string) => [`${v.toFixed(1)}h`, name]}
-                                    />
-                                    <Legend />
-                                    {spentByCategory.categories.map(cat => {
-                                        const fullKey = `category::${cat}` as keyof typeof COLORS.CATEGORY;
-                                        const color = COLORS.CATEGORY[fullKey] ?? '#94a3b8';
-                                        return (
-                                            <Bar key={cat} dataKey={cat} stackId="a" fill={color} name={cat} />
-                                        );
-                                    })}
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-
-                    {/* Weekly issue volume: opened vs closed */}
-                    {weeklyVolume.length > 0 && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 mb-1">Issues pro Woche — Geöffnet vs. Geschlossen</h4>
-                            <p className="text-xs text-gray-400 mb-2">Neue Issues (nicht kumulativ) pro Kalenderwoche</p>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={weeklyVolume}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                                    <YAxis allowDecimals={false} />
-                                    <Tooltip
-                                        labelStyle={{ color: '#111827', fontWeight: 600 }}
-                                        formatter={(v: number, name: string) => [v, name === 'opened' ? 'Geöffnet' : 'Geschlossen']}
-                                    />
-                                    <Legend formatter={n => n === 'opened' ? 'Geöffnet' : 'Geschlossen'} />
-                                    <Bar dataKey="opened" fill="#ef4444" name="opened" radius={[3, 3, 0, 0]} />
-                                    <Bar dataKey="closed" fill="#22c55e" name="closed" radius={[3, 3, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-
-                    {/* Burndown */}
-                    {burndown.length > 1 && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Burndown — Offen vs. Geschlossen (kumulativ)</h4>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <LineChart data={burndown}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                                    <YAxis />
-                                    <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
-                                        formatter={(v: number, n: string) => [v, n === 'opened' ? 'Geöffnet' : 'Geschlossen']} />
-                                    <Legend formatter={n => n === 'opened' ? 'Geöffnet' : 'Geschlossen'} />
-                                    <Line type="monotone" dataKey="opened" stroke="#ef4444" strokeWidth={2} dot={false} name="opened" />
-                                    <Line type="monotone" dataKey="closed" stroke="#22c55e" strokeWidth={2} dot={false} name="closed" />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-
-                    {/* Cycle time */}
-                    {cycleTime.length > 0 && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Durchschnittliche Bearbeitungszeit pro Kategorie (Tage)</h4>
-                            <ResponsiveContainer width="100%" height={180}>
-                                <BarChart data={cycleTime} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" unit=" Tage" />
-                                    <YAxis type="category" dataKey="category" width={120} tick={{ fontSize: 11 }} />
-                                    <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
-                                        formatter={(v: number, _: string, p: any) => [`${v} Tage (${p.payload.count} Issues)`, 'Ø Bearbeitungszeit']} />
-                                    <Bar dataKey="avgDays" fill="#6366f1" name="Ø Tage" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-
-                    {/* Estimate accuracy scatter */}
-                    {scatter.length > 0 && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 mb-1">Schätzgenauigkeit — Geschätzt vs. Tatsächlich (h)</h4>
-                            <p className="text-xs text-gray-400 mb-2">Punkte auf der Linie = perfekte Schätzung · darüber = Überschreitung · darunter = Unterschreitung</p>
-                            <ResponsiveContainer width="100%" height={260}>
-                                <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" dataKey="estimated" name="Geschätzt" unit="h" domain={[0, maxScatter * 1.1]} />
-                                    <YAxis type="number" dataKey="actual" name="Tatsächlich" unit="h" domain={[0, maxScatter * 1.1]} />
-                                    <ZAxis range={[40, 40]} />
-                                    <Tooltip cursor={{ strokeDasharray: '3 3' }}
-                                        content={({ payload }) => {
-                                            if (!payload?.length) return null;
-                                            const d = payload[0].payload;
-                                            return (
-                                                <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs shadow">
-                                                    <p className="font-semibold text-gray-800 mb-1">#{d.iid} {d.title}</p>
-                                                    <p>Geschätzt: {d.estimated}h</p>
-                                                    <p>Tatsächlich: {d.actual}h</p>
-                                                </div>
-                                            );
-                                        }}
-                                    />
-                                    <ReferenceLine segment={[{ x: 0, y: 0 }, { x: maxScatter, y: maxScatter }]}
-                                        stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Perfekt', position: 'insideTopLeft', fontSize: 11, fill: '#94a3b8' }} />
-                                    <Scatter data={scatter} fill="#3b82f6" fillOpacity={0.7} />
-                                </ScatterChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-
-                    {/* Aging */}
-                    {aging.some(b => b.count > 0) && (
-                        <div>
-                            <h4 className="text-sm font-medium text-gray-700 mb-2">Offene Issues nach Alter</h4>
-                            <ResponsiveContainer width="100%" height={160}>
-                                <BarChart data={aging}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="label" />
-                                    <YAxis allowDecimals={false} />
-                                    <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
-                                        formatter={(v: number) => [v, 'Issues']} />
-                                    <Bar dataKey="count" name="Issues" radius={[4, 4, 0, 0]}>
-                                        {aging.map((_, i) => (
-                                            <Cell key={i} fill={i === 0 ? '#22c55e' : i === 1 ? '#86efac' : i === 2 ? '#f59e0b' : '#ef4444'} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
-const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, timelogs }) => {
+const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics }) => {
     const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
 
     // All issues sorted newest-first
@@ -573,7 +328,6 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, timelogs
         });
     });
 
-    console.log('epicIssuesAll keys:', epicIssuesAll.size, [...epicIssuesAll.entries()].map(([k,v]) => `${k}:${v.length}`));
 
     // Narrow to the visible filter for display
     const epicIssuesFiltered = new Map<string, Issue[]>();
@@ -678,7 +432,6 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, timelogs
             )}
 
             {/* Analytics */}
-            <AnalyticsSection issues={issues} timelogs={timelogs} />
         </div>
     );
 };

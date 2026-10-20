@@ -28,6 +28,7 @@ import ProductivityAnalysis from './ProductivityAnalysis';
 import TeamCollaboration from './TeamCollaboration';
 import IssueAnalysis from './IssueAnalysis';
 import IssueDashboard from './IssueDashboard';
+import CategoryDashboard from './CategoryDashboard';
 import DetailedActivity from './DetailedActivity';
 
 // Import types
@@ -113,8 +114,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             }
 
             console.log('Total issues fetched:', allIssues.length);
-            const withEpic = allIssues.filter(i => (i as any).epic?.iid);
-            console.log('Issues with epic.iid:', withEpic.length, 'sample:', withEpic.slice(0, 3).map(i => ({ iid: i.iid, epicIid: (i as any).epic?.iid })));
             setIssues(allIssues);
             setLoadedCount(prev => prev + 1);
         } catch (err) {
@@ -176,8 +175,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             }
 
             setEpics(allEpics);
-            console.log('Total epics fetched:', allEpics.length, 'sample iids:', allEpics.slice(0, 5).map(e => e.iid));
-            console.log('Epics with issues.nodes:', allEpics.filter(e => e.issues?.nodes?.length > 0).length);
             setLoadedCount(prev => prev + 1);
         } catch (err) {
             console.error('Error fetching epics:', err);
@@ -829,6 +826,10 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             <IssueDashboard
                 issues={issues}
                 epics={epics}
+            />
+
+            <CategoryDashboard
+                issues={issues}
                 timelogs={windowTimelogs}
             />
 
