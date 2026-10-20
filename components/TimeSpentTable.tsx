@@ -116,6 +116,7 @@ function buildMarkdown(
 export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
     const [weekOffset, setWeekOffset] = useState(0);
     const [showAll, setShowAll] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
@@ -154,6 +155,15 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
         a.download = `zeitaufwand-${showAll ? 'gesamt' : kwLabel.replace(' ', '-')}.md`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    const handleCopyMarkdown = () => {
+        if (users.length === 0) return;
+        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel);
+        navigator.clipboard.writeText(md).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
     };
 
     return (
@@ -215,6 +225,14 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                 </button>
 
                 <div className="flex-1" />
+
+                <button
+                    onClick={handleCopyMarkdown}
+                    disabled={users.length === 0}
+                    className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                    {copied ? '✓ Kopiert' : '⎘ Kopieren'}
+                </button>
 
                 <button
                     onClick={handleExportMarkdown}
