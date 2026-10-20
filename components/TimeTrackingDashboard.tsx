@@ -2,8 +2,8 @@
 
 import React, {useState, useEffect} from 'react';
 import axios from 'axios';
-import { useDashboardContextSetter } from '@/context/DashboardContext';
-import { startOfWeek, format, eachDayOfInterval, startOfMonth, endOfMonth, addMonths, subMonths, getDay, getWeek, addWeeks, subWeeks } from 'date-fns';
+import { useDashboardContextSetter, TimeWindow } from '@/context/DashboardContext';
+import { startOfWeek, format, eachDayOfInterval, startOfMonth, endOfMonth, addMonths, subMonths, getDay, getWeek, addWeeks, subWeeks, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 // Import configuration
@@ -47,6 +47,9 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     const [autoRefresh, setAutoRefresh] = useState(false);
     const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
+    const [customStart, setCustomStart] = useState<Date | null>(null);
+    const [customEnd, setCustomEnd] = useState<Date | null>(null);
     const totalFetchCount = TEAM_MEMBERS.length + 1; // +1 for issues
 
     const rawInterval = Number(process.env.NEXT_PUBLIC_REFRESH_INTERVAL ?? 300);
@@ -228,8 +231,27 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             refreshIntervalMs: REFRESH_INTERVAL_MS,
             timelogs,
             onToggleAutoRefresh: () => setAutoRefresh(prev => !prev),
+            timeWindow,
+            onSetTimeWindow: (w: TimeWindow) => setTimeWindow(w),
+            customStart,
+            customEnd,
+            onSetCustomDates: (start, end) => { setCustomStart(start); setCustomEnd(end); },
         });
-    }, [lastRefreshed, autoRefresh, timelogs, REFRESH_INTERVAL_MS]);
+    }, [lastRefreshed, autoRefresh, timelogs, REFRESH_INTERVAL_MS, timeWindow, customStart, customEnd]);
+
+    const filterByWindow = (logs: Timelog[]): Timelog[] => {
+        if (timeWindow === 'all') return logs;
+        const now = new Date();
+        const from = timeWindow === '7d'    ? subDays(now, 7)
+                   : timeWindow === '14d'   ? subDays(now, 14)
+                   : timeWindow === 'month' ? startOfMonth(now)
+                   : customStart;
+        const to = timeWindow === 'custom' && customEnd ? customEnd : now;
+        return logs.filter(l => {
+            const d = new Date(l.spentAt);
+            return (!from || d >= from) && d <= to;
+        });
+    };
 
     const processChartData = (timelogs: Timelog[], issues: Issue[]) => {
         // === 1. Piechart (Kategorie-Zeiten gesamt) ===
@@ -626,6 +648,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         return <div className="alert alert--warning">{ERROR_MESSAGES.NO_DATA}</div>;
     }
 
+    const windowTimelogs = filterByWindow(timelogs);
+
     const {
         pieData,
         lineData,
@@ -638,8 +662,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         productivityPatterns
     } = processChartData(
         selectedCategory
-            ? timelogs.filter(t => t.issue?.labels?.nodes?.some(l => l.title === selectedCategory))
-            : timelogs,
+            ? windowTimelogs.filter(t => t.issue?.labels?.nodes?.some(l => l.title === selectedCategory))
+            : windowTimelogs,
         selectedCategory
             ? issues.filter(i => i.labels?.nodes?.some(l => l.title === selectedCategory))
             : issues
@@ -647,13 +671,17 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
 
     const userLastLogged: Record<string, string | null> = Object.fromEntries(
         TEAM_MEMBERS.map(username => {
-            const userLogs = timelogs.filter(t => t.user.username === username);
+            const userLogs = windowTimelogs.filter(t => t.user.username === username);
             const latest = userLogs.length > 0
                 ? userLogs.reduce((a, b) => a.spentAt > b.spentAt ? a : b).spentAt
                 : null;
             return [username, latest];
         })
     );
+
+    // Issues active in the current time window (have at least one timelog in the window)
+    const windowIssueIds = new Set(windowTimelogs.map(t => t.issue?.iid).filter(Boolean));
+    const windowIssues = timeWindow === 'all' ? issues : issues.filter(i => windowIssueIds.has(i.iid));
 
     return (
         <div className="space-y-10">
@@ -711,8 +739,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                 COLORS={[...COLORS.PRIMARY]}
             />
 
-            <IssueTimeAnalysis 
-                issues={issues}
+            <IssueTimeAnalysis
+                issues={windowIssues}
             />
 
         </div>

@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useCallback } from 'react';
 
+export type TimeWindow = 'all' | '7d' | '14d' | 'month' | 'custom';
+
 export interface DashboardToolbarState {
     lastRefreshed: Date | null;
     autoRefresh: boolean;
@@ -19,6 +21,11 @@ export interface DashboardToolbarState {
         } | null;
     }>;
     onToggleAutoRefresh: () => void;
+    timeWindow: TimeWindow;
+    onSetTimeWindow: (w: TimeWindow) => void;
+    customStart: Date | null;
+    customEnd: Date | null;
+    onSetCustomDates: (start: Date | null, end: Date | null) => void;
 }
 
 interface DashboardContextValue {

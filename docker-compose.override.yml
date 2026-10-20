@@ -1,0 +1,8 @@
+services:
+  app:
+    networks: !reset []
+  cloudflared:
+    profiles:
+      - disabled
+
+networks: !reset {}
