@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CHART_CONFIG, KPI_LABELS } from '../config/dashboardConfig';
 import { ProjectMetrics, Issue } from '@/types/dashboard';
 
@@ -9,17 +9,42 @@ interface ProjectOverviewProps {
 
 const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issues }) => {
     const missingEstimates = issues.filter(i => i.timeEstimate === 0 && i.totalTimeSpent > 0);
+    const [expanded, setExpanded] = useState(false);
 
     return (
         <div id="projektubersicht" className="bg-white p-4 rounded-lg shadow">
 
             {missingEstimates.length > 0 && (
-                <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-                    <span className="mt-0.5 text-base">⚠️</span>
-                    <span>
-                        <strong>{missingEstimates.length} {missingEstimates.length === 1 ? 'Issue hat' : 'Issues haben'} keine Zeitschätzung</strong>, obwohl Zeit gebucht wurde.
-                        Schätzungen setzen mit <code className="rounded bg-yellow-100 px-1">/estimate Xh</code> in der Issue-Beschreibung.
-                    </span>
+                <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                    <div className="flex items-start gap-2">
+                        <span className="mt-0.5 text-base">⚠️</span>
+                        <span className="flex-1">
+                            <strong>{missingEstimates.length} {missingEstimates.length === 1 ? 'Issue hat' : 'Issues haben'} keine Zeitschätzung</strong>, obwohl Zeit gebucht wurde.
+                            Schätzungen setzen mit <code className="rounded bg-yellow-100 px-1">/estimate Xh</code> in der Issue-Beschreibung.
+                        </span>
+                        <button
+                            onClick={() => setExpanded(e => !e)}
+                            className="ml-2 shrink-0 text-yellow-700 hover:text-yellow-900 font-medium underline underline-offset-2"
+                        >
+                            {expanded ? 'Ausblenden' : 'Anzeigen'}
+                        </button>
+                    </div>
+                    {expanded && (
+                        <ul className="mt-2 ml-7 space-y-1">
+                            {missingEstimates.map(issue => (
+                                <li key={issue.iid}>
+                                    <a
+                                        href={issue.webUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-yellow-900 underline underline-offset-2 hover:text-yellow-700"
+                                    >
+                                        #{issue.iid} {issue.title}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
             )}
 

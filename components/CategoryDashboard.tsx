@@ -282,10 +282,10 @@ export default function CategoryDashboard({ issues, timelogs }: CategoryDashboar
                         <h3 className="text-sm font-semibold text-gray-700 mb-1">Schätzgenauigkeit — Geschätzt vs. Tatsächlich</h3>
                         <p className="text-xs text-gray-400 mb-3">Punkte auf der Linie = perfekte Schätzung · darüber = Überschreitung · darunter = Unterschreitung</p>
                         <ResponsiveContainer width="100%" height={280}>
-                            <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
+                            <ScatterChart margin={{ top: 10, right: 20, bottom: 30, left: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis type="number" dataKey="estimated" name="Geschätzt" unit="h" domain={[0, maxScatter * 1.1]} tick={{ fontSize: 11 }} />
-                                <YAxis type="number" dataKey="actual" name="Tatsächlich" unit="h" domain={[0, maxScatter * 1.1]} tick={{ fontSize: 11 }} />
+                                <XAxis type="number" dataKey="estimated" name="Geschätzt" unit="h" domain={[0, maxScatter * 1.1]} tick={{ fontSize: 11 }} label={{ value: 'Geschätzt (h)', position: 'insideBottom', offset: -15, fontSize: 11, fill: '#6b7280' }} />
+                                <YAxis type="number" dataKey="actual" name="Tatsächlich" unit="h" domain={[0, maxScatter * 1.1]} tick={{ fontSize: 11 }} label={{ value: 'Tatsächlich (h)', angle: -90, position: 'insideLeft', offset: 10, fontSize: 11, fill: '#6b7280' }} />
                                 <ZAxis range={[40, 40]} />
                                 <Tooltip cursor={{ strokeDasharray: '3 3' }}
                                     content={({ payload }) => {
@@ -293,9 +293,9 @@ export default function CategoryDashboard({ issues, timelogs }: CategoryDashboar
                                         const d = payload[0].payload;
                                         return (
                                             <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs shadow">
-                                                <p className="font-semibold text-gray-800 mb-1">#{d.iid} {d.title}</p>
-                                                <p>Geschätzt: {d.estimated}h</p>
-                                                <p>Tatsächlich: {d.actual}h</p>
+                                                <p className="font-semibold text-gray-900 mb-1">#{d.iid} {d.title}</p>
+                                                <p className="text-gray-900">Geschätzt: {d.estimated}h</p>
+                                                <p className="text-gray-900">Tatsächlich: {d.actual}h</p>
                                             </div>
                                         );
                                     }}
@@ -320,7 +320,7 @@ export default function CategoryDashboard({ issues, timelogs }: CategoryDashboar
                             <BarChart data={aging}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Anzahl Issues', angle: -90, position: 'insideLeft', offset: 10, fontSize: 11, fill: '#6b7280' }} />
                                 <Tooltip
                                     labelStyle={{ color: '#111827', fontWeight: 600 }}
                                     formatter={(v: number) => [v, 'Issues']}
