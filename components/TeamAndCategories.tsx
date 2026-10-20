@@ -72,6 +72,8 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({ pieData, barData,
                     </ResponsiveContainer>
                 </div>
 
+                {/* Team Activity + Last logged — side by side */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Team Activity */}
                 <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.TEAM_ACTIVITY}</h4>
@@ -108,6 +110,7 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({ pieData, barData,
                         })}
                     </div>
                 </div>
+                </div> {/* end side-by-side grid */}
             </div>
         </div>
     );

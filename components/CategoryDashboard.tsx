@@ -114,17 +114,23 @@ function buildScatter(issues: Issue[]) {
 function buildAging(issues: Issue[]) {
     const open = issues.filter(i => i.state === 'opened');
     const buckets = [
-        { label: '< 7 Tage', count: 0 },
+        { label: '< 1 Tag',   count: 0 },
+        { label: '1–3 Tage',  count: 0 },
+        { label: '4–7 Tage',  count: 0 },
         { label: '7–14 Tage', count: 0 },
-        { label: '14–30 Tage', count: 0 },
-        { label: '> 30 Tage', count: 0 },
+        { label: '15–21 Tage',count: 0 },
+        { label: '22–31 Tage',count: 0 },
+        { label: '> 31 Tage', count: 0 },
     ];
     open.forEach(i => {
         const age = differenceInDays(new Date(), parseISO(i.createdAt));
-        if (age < 7) buckets[0].count++;
-        else if (age < 14) buckets[1].count++;
-        else if (age < 30) buckets[2].count++;
-        else buckets[3].count++;
+        if (age < 1)        buckets[0].count++;
+        else if (age <= 3)  buckets[1].count++;
+        else if (age <= 7)  buckets[2].count++;
+        else if (age <= 14) buckets[3].count++;
+        else if (age <= 21) buckets[4].count++;
+        else if (age <= 31) buckets[5].count++;
+        else                buckets[6].count++;
     });
     return buckets;
 }
@@ -321,7 +327,7 @@ export default function CategoryDashboard({ issues, timelogs }: CategoryDashboar
                                 />
                                 <Bar dataKey="count" name="Issues" radius={[4, 4, 0, 0]}>
                                     {aging.map((_, i) => (
-                                        <Cell key={i} fill={['#22c55e', '#86efac', '#f59e0b', '#ef4444'][i]} />
+                                        <Cell key={i} fill={['#22c55e', '#86efac', '#fde047', '#f59e0b', '#fb923c', '#ef4444', '#b91c1c'][i]} />
                                     ))}
                                 </Bar>
                             </BarChart>

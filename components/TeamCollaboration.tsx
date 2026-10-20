@@ -58,7 +58,7 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
                             />
                             <YAxis 
                                 label={{ 
-                                    value: 'Durchschnittliche Anzahl Teammitglieder', 
+                                    value: 'Ø Teammitglieder',
                                     angle: -90, 
                                     position: 'insideLeft',
                                     style: { textAnchor: 'middle' }

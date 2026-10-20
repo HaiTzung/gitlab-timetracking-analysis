@@ -13,7 +13,8 @@ interface ProductivityAnalysisProps {
 const ProductivityAnalysis: React.FC<ProductivityAnalysisProps> = ({ productivityPatterns }) => {
     return (
         <div id="produktivitatsanalyse" className="bg-white p-4 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">Produktivitätsanalyse</h2>
+            <h2 className="text-xl font-bold mb-1 text-gray-800">Produktivitätsanalyse</h2>
+            <p className="text-xs text-gray-400 mb-6">Basiert auf dem Zeitpunkt der Zeitbuchung in GitLab — nicht dem tatsächlichen Arbeitszeitpunkt</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Hourly Pattern */}
                 <div>
