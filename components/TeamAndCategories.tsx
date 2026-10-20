@@ -17,6 +17,28 @@ const CAT_LABELS: Record<string, string> = {
 };
 const RADAR_COLOR = '#6366f1';
 
+// Wraps a label string into at most two lines at the nearest space before maxLen.
+function wrapLabel(text: string, maxLen = 10): [string, string] {
+    if (text.length <= maxLen) return [text, ''];
+    const cut = text.lastIndexOf(' ', maxLen);
+    if (cut > 0) return [text.slice(0, cut), text.slice(cut + 1)];
+    return [text.slice(0, maxLen), text.slice(maxLen)];
+}
+
+// Custom tick that renders two-line SVG text, positioned correctly around the chart.
+function RadarTick({ x, y, payload, cx, cy }: any) {
+    const [line1, line2] = wrapLabel(payload.value);
+    const dx = x - cx;
+    const dy = y - cy;
+    const anchor = Math.abs(dx) < 5 ? 'middle' : dx > 0 ? 'start' : 'end';
+    return (
+        <text x={x} y={y} textAnchor={anchor} dominantBaseline="central" fontSize={9} fill="#6b7280">
+            <tspan x={x} dy={line2 ? '-0.6em' : '0'}>{line1}</tspan>
+            {line2 && <tspan x={x} dy="1.2em">{line2}</tspan>}
+        </text>
+    );
+}
+
 interface TeamAndCategoriesProps {
     pieData: Array<{ name: string; value: number }>;
     barData: Array<{ name: string; value: number }>;
@@ -97,7 +119,6 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                 <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2">
                         {CHART_TITLES.CATEGORY_DISTRIBUTION}
-                        {!selectedCategory && <span className="ml-2 text-xs text-gray-400">(Klicken zum Filtern)</span>}
                     </h4>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
                         <PieChart>
@@ -105,15 +126,12 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                                 dataKey="value"
                                 data={pieData}
                                 outerRadius={100}
-                                cursor="pointer"
-                                onClick={(data) => onCategorySelect(selectedCategory === data.name ? null : data.name)}
                                 label={({ name, value }) => value !== undefined ? `${name}\n${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h` : name}
                             >
                                 {pieData.map((entry, index) => (
                                     <Cell
                                         key={`cell-${index}`}
                                         fill={COLORS[index % COLORS.length]}
-                                        opacity={selectedCategory && selectedCategory !== entry.name ? 0.3 : 1}
                                     />
                                 ))}
                             </Pie>
@@ -138,15 +156,15 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                             return (
                                 <div key={username} className="flex flex-col items-center">
                                     <RadarChart
-                                        width={200}
-                                        height={180}
+                                        width={220}
+                                        height={200}
                                         data={data}
-                                        margin={{ top: 16, right: 40, bottom: 16, left: 40 }}
+                                        margin={{ top: 24, right: 48, bottom: 24, left: 48 }}
                                     >
                                         <PolarGrid stroke="#e5e7eb" />
                                         <PolarAngleAxis
                                             dataKey="category"
-                                            tick={{ fontSize: 9, fill: '#6b7280' }}
+                                            tick={(props) => <RadarTick {...props} />}
                                         />
                                         <Radar
                                             dataKey="hours"
@@ -179,15 +197,15 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                             return (
                                 <div key={catKey} className="flex flex-col items-center">
                                     <RadarChart
-                                        width={200}
-                                        height={180}
+                                        width={220}
+                                        height={200}
                                         data={data}
-                                        margin={{ top: 16, right: 40, bottom: 16, left: 40 }}
+                                        margin={{ top: 24, right: 48, bottom: 24, left: 48 }}
                                     >
                                         <PolarGrid stroke="#e5e7eb" />
                                         <PolarAngleAxis
                                             dataKey="member"
-                                            tick={{ fontSize: 9, fill: '#6b7280' }}
+                                            tick={(props) => <RadarTick {...props} />}
                                         />
                                         <Radar
                                             dataKey="hours"
