@@ -43,6 +43,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     const [timelogs, setTimelogs] = useState<Timelog[]>([]);
     const [issues, setIssues] = useState<Issue[]>([]);
     const [epics, setEpics] = useState<Epic[]>([]);
+    const [issueStatuses, setIssueStatuses] = useState<Map<string, string>>(new Map());
     const [loading, setLoading] = useState(false);
     const [loadedCount, setLoadedCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
@@ -52,7 +53,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     const [timeWindow, setTimeWindow] = useState<TimeWindow>('all');
     const [customStart, setCustomStart] = useState<Date | null>(null);
     const [customEnd, setCustomEnd] = useState<Date | null>(null);
-    const totalFetchCount = TEAM_MEMBERS.length + 2; // +1 for issues, +1 for epics
+    const totalFetchCount = TEAM_MEMBERS.length + 3; // +1 issues, +1 epics, +1 workitem statuses
 
     const rawInterval = Number(process.env.NEXT_PUBLIC_REFRESH_INTERVAL ?? 300);
     const REFRESH_INTERVAL_MS = Number.isFinite(rawInterval) && rawInterval > 0 ? rawInterval * 1000 : 300_000;
@@ -182,6 +183,61 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         }
     };
 
+    const fetchWorkItemStatuses = async (): Promise<void> => {
+        try {
+            // Fetch all project paths under the group
+            const projectsResp: any = await axios.post(GITLAB_CONFIG.API_URL, {
+                query: `{ group(fullPath: "${GITLAB_CONFIG.GROUP_PATH}") { projects { nodes { fullPath } } } }`,
+            }, { headers: { 'Content-Type': 'application/json' } });
+
+            const projectPaths: string[] = projectsResp.data?.data?.group?.projects?.nodes
+                ?.map((p: any) => p.fullPath) ?? [];
+
+            const statusMap = new Map<string, string>();
+
+            await Promise.all(projectPaths.map(async (fullPath: string) => {
+                let cursor: string | null = null;
+                let more = true;
+                while (more) {
+                    const resp: any = await axios.post(GITLAB_CONFIG.API_URL, {
+                        query: `{
+                            project(fullPath: "${fullPath}") {
+                                workItems(first: 100, after: ${cursor ? `"${cursor}"` : 'null'}) {
+                                    nodes {
+                                        iid
+                                        widgets {
+                                            type
+                                            ... on WorkItemWidgetStatus {
+                                                status { name }
+                                            }
+                                        }
+                                    }
+                                    pageInfo { hasNextPage endCursor }
+                                }
+                            }
+                        }`,
+                    }, { headers: { 'Content-Type': 'application/json' } });
+
+                    const wi = resp.data?.data?.project?.workItems;
+                    if (!wi) break;
+                    for (const node of wi.nodes ?? []) {
+                        const statusWidget = node.widgets?.find((w: any) => w.type === 'STATUS');
+                        if (statusWidget?.status?.name) {
+                            statusMap.set(node.iid, statusWidget.status.name);
+                        }
+                    }
+                    more = wi.pageInfo?.hasNextPage ?? false;
+                    cursor = wi.pageInfo?.endCursor ?? null;
+                }
+            }));
+
+            setIssueStatuses(statusMap);
+        } catch (err) {
+            console.error('Error fetching work item statuses:', err);
+            // non-fatal: badges just won't show In Progress
+        }
+    };
+
     const fetchTimelogsForUser = async (username: string): Promise<void> => {
         try {
             let allTimelogs: Timelog[] = [];
@@ -260,6 +316,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                 await Promise.all([
                     fetchAllIssues(),
                     fetchAllEpics(),
+                    fetchWorkItemStatuses(),
                     ...TEAM_MEMBERS.map(username => fetchTimelogsForUser(username))
                 ]);
                 setLastRefreshed(new Date());
@@ -287,6 +344,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                 await Promise.all([
                     fetchAllIssues(),
                     fetchAllEpics(),
+                    fetchWorkItemStatuses(),
                     ...TEAM_MEMBERS.map(username => fetchTimelogsForUser(username))
                 ]);
                 setLastRefreshed(new Date());
@@ -784,10 +842,11 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                 issues={issues}
             />
 
-            <DetailedActivity 
+            <DetailedActivity
                 heatmapData={heatmapData}
                 HEATMAP_COLORS={[...COLORS.HEATMAP]}
                 formatTime={formatTime}
+                timelogs={timelogs}
             />
 
             <TimeSeriesCharts 
@@ -826,11 +885,12 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
             <IssueDashboard
                 issues={issues}
                 epics={epics}
+                issueStatuses={issueStatuses}
             />
 
             <CategoryDashboard
                 issues={issues}
-                timelogs={windowTimelogs}
+                timelogs={timelogs}
             />
 
         </div>

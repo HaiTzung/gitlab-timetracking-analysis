@@ -12,6 +12,7 @@ import { de } from 'date-fns/locale';
 interface IssueDashboardProps {
     issues: Issue[];
     epics: Epic[];
+    issueStatuses: Map<string, string>;
 }
 
 type StateFilter = 'opened' | 'closed' | 'all';
@@ -59,7 +60,16 @@ function deviationBadge(estimated: number, spent: number) {
     return <span className={`inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium ${color}`}>{label}</span>;
 }
 
-function stateBadge(state: string) {
+function stateBadge(state: string, statusName?: string) {
+    const isInProgress = state === 'opened' &&
+        statusName?.toLowerCase().includes('in progress');
+
+    if (state === 'opened' && isInProgress) return (
+        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            In Bearbeitung
+        </span>
+    );
     if (state === 'opened') return (
         <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-green-50 text-green-700 border border-green-200 rounded px-1.5 py-0.5 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -94,7 +104,7 @@ function AssigneeChips({ assignees }: { assignees: Issue['assignees'] }) {
     );
 }
 
-function IssueRow({ issue, depth = 0 }: { issue: Issue; depth?: number }) {
+function IssueRow({ issue, depth = 0, issueStatuses }: { issue: Issue; depth?: number; issueStatuses: Map<string, string> }) {
     const estimated = (issue.timeEstimate || 0) / 3600;
     const spent = (issue.totalTimeSpent || 0) / 3600;
     const category = getMainCategory(issue);
@@ -114,7 +124,7 @@ function IssueRow({ issue, depth = 0 }: { issue: Issue; depth?: number }) {
                     className="flex-1 text-gray-700 hover:text-blue-600 hover:underline truncate font-medium">
                     {issue.title}
                 </a>
-                {stateBadge(issue.state)}
+                {stateBadge(issue.state, issueStatuses.get(issue.iid))}
                 {category && (
                     <span className="hidden lg:inline-flex flex-shrink-0 text-xs bg-purple-50 text-purple-600 border border-purple-100 rounded px-1.5 py-0.5 truncate max-w-32">
                         {category.replace('category::', '')}
@@ -191,7 +201,7 @@ function EpicProgressBar({ dc }: { dc: Epic['descendantCounts'] }) {
 }
 
 function EpicNode({
-    epic, childEpics, epicIssues, allEpics, allIssues, depth = 0,
+    epic, childEpics, epicIssues, allEpics, allIssues, depth = 0, issueStatuses,
 }: {
     epic: Epic;
     childEpics: Map<string | null, Epic[]>;
@@ -199,6 +209,7 @@ function EpicNode({
     allEpics: Epic[];
     allIssues: Issue[];
     depth?: number;
+    issueStatuses: Map<string, string>;
 }) {
     const [expanded, setExpanded] = useState(true);
     const directIssues = epicIssues.get(epic.iid) ?? [];
@@ -258,10 +269,11 @@ function EpicNode({
                 <div>
                     {children.map(child => (
                         <EpicNode key={child.iid} epic={child} childEpics={childEpics}
-                            epicIssues={epicIssues} allEpics={allEpics} allIssues={allIssues} depth={depth + 1} />
+                            epicIssues={epicIssues} allEpics={allEpics} allIssues={allIssues}
+                            depth={depth + 1} issueStatuses={issueStatuses} />
                     ))}
                     {directIssues.map(issue => (
-                        <IssueRow key={issue.iid} issue={issue} depth={depth + 1} />
+                        <IssueRow key={issue.iid} issue={issue} depth={depth + 1} issueStatuses={issueStatuses} />
                     ))}
                 </div>
             )}
@@ -269,7 +281,7 @@ function EpicNode({
     );
 }
 
-function OrphanGroup({ issues }: { issues: Issue[] }) {
+function OrphanGroup({ issues, issueStatuses }: { issues: Issue[]; issueStatuses: Map<string, string> }) {
     const [expanded, setExpanded] = useState(true);
     return (
         <div className="bg-gray-100 border-l-2 border-l-gray-300">
@@ -284,13 +296,13 @@ function OrphanGroup({ issues }: { issues: Issue[] }) {
                 <span className="text-xs text-gray-400 hidden sm:block">{issues.length} Issue{issues.length !== 1 ? 's' : ''}</span>
             </button>
             {expanded && issues.map(issue => (
-                <IssueRow key={issue.iid} issue={issue} depth={1} />
+                <IssueRow key={issue.iid} issue={issue} depth={1} issueStatuses={issueStatuses} />
             ))}
         </div>
     );
 }
 
-const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics }) => {
+const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses }) => {
     const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
 
     // All issues sorted newest-first
@@ -425,9 +437,10 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics }) => {
                 <div className="divide-y divide-gray-100">
                     {rootEpics.map(epic => (
                         <EpicNode key={epic.iid} epic={epic} childEpics={childEpics}
-                            epicIssues={epicIssuesFiltered} allEpics={epics} allIssues={filteredIssues} depth={0} />
+                            epicIssues={epicIssuesFiltered} allEpics={epics} allIssues={filteredIssues}
+                            depth={0} issueStatuses={issueStatuses} />
                     ))}
-                    {orphanIssues.length > 0 && <OrphanGroup issues={orphanIssues} />}
+                    {orphanIssues.length > 0 && <OrphanGroup issues={orphanIssues} issueStatuses={issueStatuses} />}
                 </div>
             )}
 

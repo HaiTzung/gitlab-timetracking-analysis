@@ -5,7 +5,7 @@ import { useDashboardContext, TimeWindow } from '@/context/DashboardContext';
 
 const NAV_ITEMS = [
     { id: 'projektubersicht',       label: 'Projektübersicht' },
-    { id: 'detaillierte-aktivitat', label: 'Detaillierte Aktivität' },
+    { id: 'detaillierte-aktivitat', label: 'Aktivität' },
     { id: 'zeitliche-entwicklung',  label: 'Zeitliche Entwicklung' },
     { id: 'team-kategorien',        label: 'Team & Kategorien' },
     { id: 'produktivitatsanalyse',  label: 'Produktivitätsanalyse' },

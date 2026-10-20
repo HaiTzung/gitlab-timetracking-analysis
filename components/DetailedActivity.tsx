@@ -1,17 +1,20 @@
 import React from "react";
 import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS } from "@/config/dashboardConfig";
-import { HeatmapData } from "@/types/dashboard";
+import { HeatmapData, Timelog } from "@/types/dashboard";
+import TimeSpentTable from "@/components/TimeSpentTable";
 
 interface DetailedActivityProps {
   heatmapData: HeatmapData[][];
   HEATMAP_COLORS: string[];
   formatTime: (seconds: number) => string;
+  timelogs: Timelog[];
 }
 
 const DetailedActivity: React.FC<DetailedActivityProps> = ({
   heatmapData,
   HEATMAP_COLORS,
   formatTime,
+  timelogs,
 }) => {
   const getColorIndex = (value: number) => {
     if (value === 0) return 0;
@@ -23,8 +26,11 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
 
   return (
     <div id="detaillierte-aktivitat" className="bg-white p-6 rounded-lg shadow">
-      <h2 className="text-xl font-bold mb-6 text-gray-800">Detaillierte Aktivität</h2>
-      <div className="space-y-6">
+      <h2 className="text-xl font-bold mb-6 text-gray-800">Aktivität</h2>
+      <div className="space-y-10">
+        {/* Time spent per person per category */}
+        <TimeSpentTable timelogs={timelogs} />
+
         {/* GitHub-style Activity Heatmap */}
         <div>
           <h4 className="text-sm font-medium text-gray-700 mb-4">{CHART_TITLES.DAILY_ACTIVITY}</h4>
