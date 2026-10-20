@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDashboardContext, TimeWindow } from "@/context/DashboardContext";
 
 const NAV_ITEMS = [
@@ -36,47 +36,49 @@ export default function Sidebar({ open }: SidebarProps) {
   const [customOpen, setCustomOpen] = useState(false);
   const [draftStart, setDraftStart] = useState("");
   const [draftEnd, setDraftEnd] = useState("");
+  const navRef = useRef<HTMLElement>(null);
   const ctx = useDashboardContext();
   const activeWindow = ctx?.timeWindow ?? "all";
 
+  // Determine active section by finding the topmost section whose top edge
+  // is at or above 35% down the viewport. Listens on the main scroll container,
+  // not window (the page uses overflow-y-auto on <main>, not body scroll).
   useEffect(() => {
-    if (!open) return;
+    const scroller = document.getElementById('main-scroll');
+    if (!scroller) return;
 
-    let rafId: number;
-    let observers: IntersectionObserver[] = [];
-
-    rafId = requestAnimationFrame(() => {
-      const visibleSections = new Map<string, number>();
-
-      NAV_ITEMS.forEach(({ id }) => {
+    const getActive = () => {
+      const midpoint = scroller.getBoundingClientRect().top + scroller.clientHeight * 0.35;
+      let best: string = NAV_ITEMS[0].id;
+      for (const { id } of NAV_ITEMS) {
         const el = document.getElementById(id);
-        if (!el) return;
-        const observer = new IntersectionObserver(
-          ([entry]) => {
-            if (entry.isIntersecting) {
-              visibleSections.set(id, entry.intersectionRatio);
-            } else {
-              visibleSections.delete(id);
-            }
-            if (visibleSections.size > 0) {
-              const topmost = [...visibleSections.entries()].reduce((a, b) =>
-                a[1] > b[1] ? a : b,
-              );
-              setActiveId(topmost[0]);
-            }
-          },
-          { threshold: [0, 0.25, 0.5, 0.75, 1] },
-        );
-        observer.observe(el);
-        observers.push(observer);
-      });
-    });
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      observers.forEach((o) => o.disconnect());
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= midpoint) best = id;
+      }
+      setActiveId(best);
     };
-  }, [open]);
+
+    getActive();
+    scroller.addEventListener('scroll', getActive, { passive: true });
+    return () => scroller.removeEventListener('scroll', getActive);
+  }, []);
+
+  // Scroll the sidebar nav to keep the active link visible inside the nav container.
+  useEffect(() => {
+    if (!activeId || !navRef.current) return;
+    const nav = navRef.current;
+    const link = nav.querySelector<HTMLElement>(`a[href="#${activeId}"]`);
+    if (!link) return;
+    const navTop = nav.scrollTop;
+    const navBottom = navTop + nav.clientHeight;
+    const linkTop = link.offsetTop;
+    const linkBottom = linkTop + link.offsetHeight;
+    if (linkTop < navTop) {
+      nav.scrollTo({ top: linkTop - 8, behavior: 'smooth' });
+    } else if (linkBottom > navBottom) {
+      nav.scrollTo({ top: linkBottom - nav.clientHeight + 8, behavior: 'smooth' });
+    }
+  }, [activeId]);
 
   const handlePreset = (w: TimeWindow) => {
     ctx?.onSetTimeWindow(w);
@@ -108,20 +110,20 @@ export default function Sidebar({ open }: SidebarProps) {
         <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-widest text-gray-400">
           Navigation
         </p>
-        <nav className="flex flex-col gap-0.5 px-2 overflow-y-auto flex-1">
+        <nav ref={navRef} className="flex flex-col gap-0.5 px-2 overflow-y-auto flex-1">
           {NAV_ITEMS.map(({ id, label }) => (
             <a
               key={id}
               href={`#${id}`}
               className={`flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
                 activeId === id
-                  ? "bg-blue-50 text-blue-700 font-medium"
+                  ? "bg-gray-200 text-gray-900 font-semibold"
                   : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                  activeId === id ? "bg-blue-600" : "bg-gray-300"
+                  activeId === id ? "bg-gray-700" : "bg-gray-300"
                 }`}
               />
               <span className="whitespace-nowrap">{label}</span>

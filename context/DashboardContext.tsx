@@ -21,6 +21,7 @@ export interface DashboardToolbarState {
         } | null;
     }>;
     onToggleAutoRefresh: () => void;
+    onRefresh: () => void;
     timeWindow: TimeWindow;
     onSetTimeWindow: (w: TimeWindow) => void;
     customStart: Date | null;

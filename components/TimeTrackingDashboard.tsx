@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useDashboardContextSetter, TimeWindow } from "@/context/DashboardContext";
 import {
@@ -71,6 +71,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   const [loadedCount, setLoadedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [backgroundRefreshing, setBackgroundRefreshing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
@@ -337,59 +338,73 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     }
   };
 
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setTimelogs([]);
+    setIssues([]);
+    setEpics([]);
+    setLoadedCount(0);
+    try {
+      await Promise.all([
+        fetchAllIssues(),
+        fetchAllEpics(),
+        fetchWorkItemStatuses(),
+        ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
+      ]);
+      setLastRefreshed(new Date());
+    } catch {
+      setError(ERROR_MESSAGES.LOADING_ERROR);
+    } finally {
+      setLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const manualRefresh = useCallback(async () => {
+    // Save scroll position so the page doesn't jump when we clear state
+    const scroller = document.getElementById('main-scroll');
+    const scrollY = scroller?.scrollTop ?? 0;
+    setBackgroundRefreshing(true);
+    setError(null);
+    setTimelogs([]);
+    setIssues([]);
+    setEpics([]);
+    setIssueStatuses(new Map());
+    setLoadedCount(0);
+    try {
+      await Promise.all([
+        fetchAllIssues(),
+        fetchAllEpics(),
+        fetchWorkItemStatuses(),
+        ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
+      ]);
+      setLastRefreshed(new Date());
+    } catch {
+      setError(ERROR_MESSAGES.LOADING_ERROR);
+    } finally {
+      setBackgroundRefreshing(false);
+      // Restore scroll position after React has re-rendered with new data
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const s = document.getElementById('main-scroll');
+        if (s) s.scrollTop = scrollY;
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
-    const fetchAllData = async () => {
-      setLoading(true);
-      setError(null);
-      setTimelogs([]);
-      setIssues([]);
-      setEpics([]);
-      setLoadedCount(0);
-
-      try {
-        await Promise.all([
-          fetchAllIssues(),
-          fetchAllEpics(),
-          fetchWorkItemStatuses(),
-          ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
-        ]);
-        setLastRefreshed(new Date());
-      } catch (err) {
-        setError(ERROR_MESSAGES.LOADING_ERROR);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAllData();
   }, [startDate, endDate]);
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const id = setInterval(async () => {
-      if (loading) return;
-      setLoading(true);
-      setError(null);
-      setTimelogs([]);
-      setIssues([]);
-      setEpics([]);
-      setLoadedCount(0);
-      try {
-        await Promise.all([
-          fetchAllIssues(),
-          fetchAllEpics(),
-          fetchWorkItemStatuses(),
-          ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
-        ]);
-        setLastRefreshed(new Date());
-      } catch {
-        setError(ERROR_MESSAGES.LOADING_ERROR);
-      } finally {
-        setLoading(false);
-      }
+    const id = setInterval(() => {
+      if (loading || backgroundRefreshing) return;
+      fetchAllData();
     }, REFRESH_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [autoRefresh, REFRESH_INTERVAL_MS]);
+  }, [autoRefresh, REFRESH_INTERVAL_MS, loading, backgroundRefreshing, fetchAllData]);
 
   useEffect(() => {
     setToolbarState({
@@ -398,6 +413,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       refreshIntervalMs: REFRESH_INTERVAL_MS,
       timelogs,
       onToggleAutoRefresh: () => setAutoRefresh((prev) => !prev),
+      onRefresh: manualRefresh,
       timeWindow,
       onSetTimeWindow: (w: TimeWindow) => setTimeWindow(w),
       customStart,
@@ -455,6 +471,10 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     }));
 
     // === 2. Linechart (Zeit/Woche/Person) ===
+    // Build username → display name map first (used in lineData and barData)
+    const usernameToName: Record<string, string> = {};
+    timelogs.forEach((log) => { usernameToName[log.user.username] = log.user.name; });
+
     const weeklyMap: Record<string, Record<string, number>> = {};
     timelogs.forEach((log) => {
       if (log.issue && log.issue.labels && log.issue.labels.nodes) {
@@ -477,14 +497,23 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       })
       .map(([week, users]) => {
         const row: Record<string, any> = { week };
+        TEAM_MEMBERS.forEach((member) => {
+          const userName = usernameToName[member] ?? member;
+          row[userName] = (users[userName] ?? 0) / TIME_CONFIG.SECONDS_PER_HOUR;
+        });
         Object.entries(users).forEach(([user, time]) => {
-          row[user] = time / TIME_CONFIG.SECONDS_PER_HOUR;
+          if (row[user] === undefined) row[user] = time / TIME_CONFIG.SECONDS_PER_HOUR;
         });
         return row;
       });
 
     // === 3. Barchart (Gesamtzeit/Person) ===
     const userMap: Record<string, number> = {};
+    // Seed all team members with 0 so they always appear
+    TEAM_MEMBERS.forEach((username) => {
+      const displayName = usernameToName[username] ?? username;
+      userMap[displayName] = 0;
+    });
     timelogs.forEach((log) => {
       const user = log.user.name;
       if (!userMap[user]) userMap[user] = 0;
@@ -817,7 +846,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}h`;
   };
 
-  if (loading) {
+  if (loading && !backgroundRefreshing) {
     const percent = Math.round((loadedCount / totalFetchCount) * 100);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50">
@@ -884,6 +913,12 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
 
   return (
     <div className="space-y-10">
+      {/* Background refresh indicator */}
+      {backgroundRefreshing && (
+        <div className="fixed top-14 left-0 right-0 z-30 h-0.5 bg-blue-100 overflow-hidden">
+          <div className="h-full bg-blue-500 animate-pulse w-full" />
+        </div>
+      )}
       {/* Filter chip */}
       {selectedCategory && (
         <div className="flex items-center gap-3 text-sm text-gray-500">

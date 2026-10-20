@@ -91,6 +91,14 @@ export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
                         </button>
 
                         <button
+                            onClick={ctx.onRefresh}
+                            className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200 transition-colors"
+                            title="Daten neu laden"
+                        >
+                            ↻ Aktualisieren
+                        </button>
+
+                        <button
                             onClick={ctx.onToggleAutoRefresh}
                             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                                 ctx.autoRefresh

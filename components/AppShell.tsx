@@ -21,7 +21,7 @@ export default function AppShell({ children }: AppShellProps) {
         <TitleBar onMenuToggle={() => setSidebarOpen((prev) => !prev)} projectName={PROJECT_NAME} />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar open={sidebarOpen} />
-          <main className="flex-1 overflow-y-auto px-6 py-6 scroll-smooth">{children}</main>
+          <main id="main-scroll" className="flex-1 overflow-y-auto px-6 py-6 scroll-smooth">{children}</main>
         </div>
       </div>
     </DashboardProvider>
