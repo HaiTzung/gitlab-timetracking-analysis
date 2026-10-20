@@ -20,11 +20,15 @@ const ProductivityAnalysis: React.FC<ProductivityAnalysisProps> = ({ productivit
                 <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.HOURLY_DISTRIBUTION}</h4>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
-                        <BarChart data={productivityPatterns.hourlyData}>
+                        <BarChart data={productivityPatterns.hourlyData} margin={{ bottom: 24 }}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis 
-                                dataKey="hour" 
-                                label={{ value: 'Uhrzeit', position: 'bottom' }}
+                            <XAxis
+                                dataKey="hour"
+                                interval={0}
+                                tick={{ fontSize: 10 }}
+                                angle={-45}
+                                textAnchor="end"
+                                height={48}
                             />
                             <YAxis 
                                 label={{ 
@@ -58,9 +62,10 @@ const ProductivityAnalysis: React.FC<ProductivityAnalysisProps> = ({ productivit
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
                         <BarChart data={productivityPatterns.weeklyData}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis 
-                                dataKey="day" 
-                                label={{ value: 'Wochentag', position: 'bottom' }}
+                            <XAxis
+                                dataKey="day"
+                                interval={0}
+                                tick={{ fontSize: 11 }}
                             />
                             <YAxis 
                                 label={{ 
