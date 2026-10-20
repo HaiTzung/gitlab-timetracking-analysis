@@ -962,6 +962,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         teamMembers={[...TEAM_MEMBERS]}
         selectedCategory={selectedCategory}
         onCategorySelect={setSelectedCategory}
+        timelogs={windowTimelogs}
+        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
       />
 
       <ProductivityAnalysis productivityPatterns={productivityPatterns} />
