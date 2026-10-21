@@ -441,6 +441,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         fetchWorkItemStatuses(),
         ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
       ]);
+      await fetchIssueNotes();
       setLastRefreshed(new Date());
     } catch {
       setError(ERROR_MESSAGES.LOADING_ERROR);
