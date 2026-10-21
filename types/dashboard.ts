@@ -1,3 +1,12 @@
+export interface IssueNote {
+    id: string;
+    body: string;
+    createdAt: string;
+    author: { name: string };
+    system: boolean;
+    url: string;
+}
+
 export interface Issue {
     title: string;
     timeEstimate: number;
@@ -7,6 +16,7 @@ export interface Issue {
     state: string;
     webUrl: string;
     createdAt: string;
+    updatedAt?: string;
     closedAt: string | null;
     dueDate: string | null;
     weight: number | null;
@@ -19,6 +29,7 @@ export interface Issue {
         nodes: Array<{title: string}>;
     };
     epic: { iid: string } | null;
+    notes?: { nodes: IssueNote[] };
 }
 
 export interface Epic {

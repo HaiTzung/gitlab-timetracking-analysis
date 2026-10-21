@@ -1,13 +1,19 @@
 import React from "react";
-import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS } from "@/config/dashboardConfig";
-import { HeatmapData, Timelog } from "@/types/dashboard";
+import { CHART_TITLES } from "@/config/dashboardConfig";
+import { HeatmapData, Timelog, Issue } from "@/types/dashboard";
 import TimeSpentTable from "@/components/TimeSpentTable";
+import ActivityFeed from "@/components/ActivityFeed";
+import { TimeWindow } from "@/context/DashboardContext";
 
 interface DetailedActivityProps {
   heatmapData: HeatmapData[][];
   HEATMAP_COLORS: string[];
   formatTime: (seconds: number) => string;
   timelogs: Timelog[];
+  issues: Issue[];
+  timeWindow: TimeWindow;
+  customStart: Date | null;
+  customEnd: Date | null;
 }
 
 const DetailedActivity: React.FC<DetailedActivityProps> = ({
@@ -15,6 +21,10 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
   HEATMAP_COLORS,
   formatTime,
   timelogs,
+  issues,
+  timeWindow,
+  customStart,
+  customEnd,
 }) => {
   const getColorIndex = (value: number) => {
     if (value === 0) return 0;
@@ -127,6 +137,15 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Activity history feed */}
+        <ActivityFeed
+          timelogs={timelogs}
+          issues={issues}
+          timeWindow={timeWindow}
+          customStart={customStart}
+          customEnd={customEnd}
+        />
       </div>
     </div>
   );

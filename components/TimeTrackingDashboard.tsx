@@ -78,7 +78,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [customStart, setCustomStart] = useState<Date | null>(null);
   const [customEnd, setCustomEnd] = useState<Date | null>(null);
-  const totalFetchCount = TEAM_MEMBERS.length + 3; // +1 issues, +1 epics, +1 workitem statuses
+  const totalFetchCount = TEAM_MEMBERS.length + 4; // +1 issues, +1 epics, +1 workitem statuses, +1 notes
 
   const rawInterval = Number(process.env.NEXT_PUBLIC_REFRESH_INTERVAL ?? 300);
   const REFRESH_INTERVAL_MS =
@@ -105,6 +105,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                                         state
                                         webUrl
                                         createdAt
+                                        updatedAt
                                         closedAt
                                         dueDate
                                         weight
@@ -275,6 +276,64 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     }
   };
 
+  const fetchIssueNotes = async (): Promise<void> => {
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+      let hasNextPage = true;
+      let endCursor: string | null = null;
+      const notesByIid: Record<string, Issue['notes']> = {};
+
+      while (hasNextPage) {
+        const response: any = await axios.post(
+          GITLAB_CONFIG.API_URL,
+          {
+            query: `
+              {
+                group(fullPath: "${GITLAB_CONFIG.GROUP_PATH}") {
+                  issues(first: 50, after: ${endCursor ? `"${endCursor}"` : "null"}, updatedAfter: "${sevenDaysAgo}") {
+                    nodes {
+                      iid
+                      notes(first: 50) {
+                        nodes {
+                          id
+                          body
+                          createdAt
+                          author { name }
+                          system
+                          url
+                        }
+                      }
+                    }
+                    pageInfo { hasNextPage endCursor }
+                  }
+                }
+              }
+            `,
+          },
+          { headers: { "Content-Type": "application/json" } },
+        );
+
+        const issuesData = response.data.data.group.issues;
+        for (const issue of issuesData.nodes) {
+          notesByIid[issue.iid] = {
+            nodes: issue.notes.nodes.filter((n: any) => !n.system),
+          };
+        }
+        hasNextPage = issuesData.pageInfo.hasNextPage;
+        endCursor = issuesData.pageInfo.endCursor;
+      }
+
+      setIssues(prev => prev.map(issue => ({
+        ...issue,
+        notes: notesByIid[issue.iid] ?? { nodes: [] },
+      })));
+      setLoadedCount(prev => prev + 1);
+    } catch (err) {
+      console.error("Error fetching issue notes:", err);
+      setLoadedCount(prev => prev + 1); // non-fatal
+    }
+  };
+
   const fetchTimelogsForUser = async (username: string): Promise<void> => {
     try {
       let allTimelogs: Timelog[] = [];
@@ -354,6 +413,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         fetchWorkItemStatuses(),
         ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
       ]);
+      await fetchIssueNotes();
       setLastRefreshed(new Date());
     } catch {
       setError(ERROR_MESSAGES.LOADING_ERROR);
@@ -940,6 +1000,10 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         HEATMAP_COLORS={[...COLORS.HEATMAP]}
         formatTime={formatTime}
         timelogs={timelogs}
+        issues={issues}
+        timeWindow={timeWindow}
+        customStart={customStart}
+        customEnd={customEnd}
       />
 
       <IssueDashboard issues={issues} epics={epics} issueStatuses={issueStatuses} />
