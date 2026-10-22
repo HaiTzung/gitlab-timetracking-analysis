@@ -9,6 +9,21 @@ import {
 import { format, parseISO, eachWeekOfInterval, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 
+function buildCategoryIssueCount(issues: Issue[]) {
+    const CATEGORY_VALUES = Object.values(CATEGORIES) as string[];
+    const getMainCategory = (issue: Issue) =>
+        issue.labels?.nodes?.find(l => CATEGORY_VALUES.includes(l.title))?.title ?? '';
+    return CATEGORY_VALUES.map(cat => {
+        const catIssues = issues.filter(i => getMainCategory(i) === cat);
+        return {
+            category: cat.replace('category::', ''),
+            opened: catIssues.filter(i => i.state === 'opened').length,
+            closed: catIssues.filter(i => i.state === 'closed').length,
+            total: catIssues.length,
+        };
+    }).filter(c => c.total > 0);
+}
+
 function buildWeeklyIssueVolume(issues: Issue[]) {
     if (!issues.length) return [];
     const dates = issues.map(i => parseISO(i.createdAt));
@@ -377,6 +392,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
     const orphanIssues = filteredIssues.filter(i => !assignedIids.has(i.iid));
 
     const weeklyVolume = buildWeeklyIssueVolume(issues);
+    const catIssueCounts = buildCategoryIssueCount(issues);
 
     return (
         <div id="issue-zeitanalyse" className="bg-white p-4 rounded-lg shadow">
@@ -385,21 +401,21 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                 <h2 className="text-xl font-bold text-gray-800">Issues</h2>
             </div>
 
-            {/* Weekly volume chart */}
-            {weeklyVolume.length > 0 && (
+            {/* Category issue count chart */}
+            {catIssueCounts.length > 0 && (
                 <div className="mb-8">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Neue vs. geschlossene Issues pro Woche</h4>
-                    <p className="text-xs text-gray-400 mb-3">Nicht kumulativ — zeigt Aktivität pro Kalenderwoche</p>
-                    <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={weeklyVolume}>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Issues pro Kategorie — Offen vs. Geschlossen</h4>
+                    <p className="text-xs text-gray-400 mb-3">Gesamtstand aller Issues je Kategorie</p>
+                    <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={catIssueCounts}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="week" tick={{ fontSize: 11 }} />
+                            <XAxis dataKey="category" tick={{ fontSize: 11 }} />
                             <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                             <Tooltip
                                 labelStyle={{ color: '#111827', fontWeight: 600 }}
-                                formatter={(v: number, name: string) => [v, name === 'opened' ? 'Geöffnet' : 'Geschlossen']}
+                                formatter={(v: number, name: string) => [v, name === 'opened' ? 'Offen' : 'Geschlossen']}
                             />
-                            <Legend formatter={n => n === 'opened' ? 'Geöffnet' : 'Geschlossen'} />
+                            <Legend formatter={n => n === 'opened' ? 'Offen' : 'Geschlossen'} />
                             <Bar dataKey="opened" fill="#ef4444" name="opened" radius={[3, 3, 0, 0]} />
                             <Bar dataKey="closed" fill="#22c55e" name="closed" radius={[3, 3, 0, 0]} />
                         </BarChart>

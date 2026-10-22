@@ -56,14 +56,15 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
                                 interval={0}
                                 tick={{ fontSize: 12 }}
                             />
-                            <YAxis 
-                                label={{ 
+                            <YAxis
+                                label={{
                                     value: 'Ø Teammitglieder',
-                                    angle: -90, 
+                                    angle: -90,
                                     position: 'insideLeft',
                                     style: { textAnchor: 'middle' }
                                 }}
-                                domain={[0, 'dataMax + 1']}
+                                domain={[0, (dataMax: number) => Math.ceil(dataMax) + 1]}
+                                tickFormatter={(v: number) => `${v}`}
                             />
                             <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
                                 formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}`, TOOLTIP_LABELS.TEAM_MEMBERS]}

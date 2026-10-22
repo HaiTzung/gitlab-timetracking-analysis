@@ -86,7 +86,7 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
             <div className="grid grid-cols-1 gap-6">
 
                 {/* Geschätzt vs. Gebucht pro Kategorie */}
-                {categoryComparison.length > 0 && (
+                {false && categoryComparison.length > 0 && (
                     <div>
                         <h4 className="text-sm font-medium text-gray-700 mb-2">Geschätzt vs. Gebucht pro Kategorie</h4>
                         <ResponsiveContainer width="100%" height={220}>
@@ -105,6 +105,7 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                 )}
 
                 {/* Issue Complexity */}
+                {false && (
                 <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.ISSUE_COMPLEXITY}</h4>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
@@ -143,6 +144,7 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
+                )}
 
                 {/* Offene Issues nach Alter */}
                 {aging.some(b => b.count > 0) && (
@@ -176,8 +178,8 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                         <ResponsiveContainer width="100%" height={280}>
                             <ScatterChart margin={{ top: 10, right: 20, bottom: 30, left: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis type="number" dataKey="estimated" name="Geschätzt" unit="h" domain={[0, maxScatter * 1.1]} tick={{ fontSize: 11 }} label={{ value: 'Geschätzt (h)', position: 'insideBottom', offset: -15, fontSize: 11, fill: '#6b7280' }} />
-                                <YAxis type="number" dataKey="actual" name="Tatsächlich" unit="h" domain={[0, maxScatter * 1.1]} tick={{ fontSize: 11 }} label={{ value: 'Tatsächlich (h)', angle: -90, position: 'insideLeft', offset: 10, fontSize: 11, fill: '#6b7280' }} />
+                                <XAxis type="number" dataKey="estimated" name="Geschätzt" unit="h" domain={[0, Math.ceil(maxScatter * 1.1)]} tick={{ fontSize: 11 }} label={{ value: 'Geschätzt (h)', position: 'insideBottom', offset: -15, fontSize: 11, fill: '#6b7280' }} />
+                                <YAxis type="number" dataKey="actual" name="Tatsächlich" unit="h" domain={[0, Math.ceil(maxScatter * 1.1)]} tick={{ fontSize: 11 }} label={{ value: 'Tatsächlich (h)', angle: -90, position: 'insideLeft', offset: 10, fontSize: 11, fill: '#6b7280' }} />
                                 <ZAxis range={[40, 40]} />
                                 <Tooltip cursor={{ strokeDasharray: '3 3' }}
                                     content={({ payload }) => {
