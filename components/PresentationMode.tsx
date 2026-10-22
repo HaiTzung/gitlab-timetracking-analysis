@@ -149,6 +149,7 @@ export default function PresentationMode(props: PresentationModeProps) {
                             selectedCategory={props.selectedCategory}
                             onCategorySelect={props.onCategorySelect}
                             timelogs={props.windowTimelogs}
+                            allTimelogs={props.timelogs}
                             usernameToName={props.usernameToName}
                         />
                     )}

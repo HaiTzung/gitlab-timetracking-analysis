@@ -8,9 +8,10 @@ import {
 import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS, CATEGORIES, COLORS } from '../config/dashboardConfig';
 import { Issue, ProjectMetrics, Timelog } from '@/types/dashboard';
 import {
-    format, differenceInDays, eachWeekOfInterval, parseISO, startOfWeek, addDays,
+    format, differenceInDays, eachWeekOfInterval, parseISO, startOfWeek, addDays, isSameDay, endOfWeek,
 } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useDashboardContext } from '@/context/DashboardContext';
 
 interface TimeSeriesChartsProps {
     projectMetrics: ProjectMetrics;
@@ -116,6 +117,43 @@ function buildCategoryIssueCount(issues: Issue[]) {
     }).filter(c => c.total > 0);
 }
 
+function buildDailyTotalData(timelogs: Timelog[], weekStart: Date, weekEnd: Date) {
+    const weekLogs = timelogs.filter(t => {
+        const d = parseISO(t.spentAt);
+        return d >= weekStart && d <= weekEnd;
+    });
+    return Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(weekStart, i);
+        const label = format(day, 'EEE dd.MM.', { locale: de });
+        const totalHours = weekLogs
+            .filter(t => isSameDay(parseISO(t.spentAt), day))
+            .reduce((s, t) => s + t.timeSpent / 3600, 0);
+        return { day: label, totalHours: parseFloat(totalHours.toFixed(2)) };
+    });
+}
+
+function buildDailyCategoryData(timelogs: Timelog[], weekStart: Date, weekEnd: Date) {
+    const weekLogs = timelogs.filter(t => {
+        const d = parseISO(t.spentAt);
+        return d >= weekStart && d <= weekEnd;
+    });
+    return Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(weekStart, i);
+        const label = format(day, 'EEE dd.MM.', { locale: de });
+        const categoryHours: Record<string, number> = {};
+        CATEGORY_VALUES.forEach(cat => {
+            categoryHours[cat] = weekLogs
+                .filter(t => {
+                    const d = parseISO(t.spentAt);
+                    return isSameDay(d, day) &&
+                        t.issue?.labels?.nodes?.some(l => l.title === cat);
+                })
+                .reduce((s, t) => s + t.timeSpent / 3600, 0);
+        });
+        return { day: label, categoryHours };
+    });
+}
+
 // ── component ─────────────────────────────────────────────────────────────────
 
 const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
@@ -126,11 +164,21 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
     issues,
     timelogs,
 }) => {
+    const ctx = useDashboardContext();
+    const isKwMode = ctx?.timeWindow === 'kw' && !!ctx.customStart && !!ctx.customEnd;
+
     const spentByCategory = buildSpentByCategory(timelogs);
     const burndown        = buildBurndown(issues);
     const cycleTime       = buildCycleTime(issues);
     const catIssueCounts  = buildCategoryIssueCount(issues);
     const weeklyVolume    = buildWeeklyIssueVolume(issues);
+
+    const dailyCategoryData = isKwMode
+        ? buildDailyCategoryData(timelogs, ctx!.customStart!, ctx!.customEnd!)
+        : [];
+    const dailyTotalData = isKwMode
+        ? buildDailyTotalData(timelogs, ctx!.customStart!, ctx!.customEnd!)
+        : [];
 
     return (
         <div id="zeitliche-entwicklung" className="bg-white p-4 rounded-lg shadow">
@@ -138,10 +186,39 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
             <div className="grid grid-cols-1 gap-10">
 
                 {/* Kategorie-Trend */}
-                {projectMetrics.sprintData.length > 0 && (
+                {(isKwMode || projectMetrics.sprintData.length > 0) && (
                 <section>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-1">Kategorie-Trend</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-1">
+                        {isKwMode ? 'Kategorie-Trend (täglich)' : 'Kategorie-Trend'}
+                    </h3>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
+                        {isKwMode ? (
+                        <AreaChart data={dailyCategoryData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} unit="h" />
+                            <Tooltip
+                                labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                formatter={(value: number, name: string) => [`${value.toFixed(1)}h`, name]}
+                            />
+                            <Legend />
+                            {CATEGORY_VALUES.map((category) => {
+                                const color = COLORS.CATEGORY[category as keyof typeof COLORS.CATEGORY] ?? '#94a3b8';
+                                return (
+                                    <Area
+                                        key={category}
+                                        type="monotone"
+                                        dataKey={`categoryHours.${category}`}
+                                        stackId="1"
+                                        stroke={color}
+                                        fill={color}
+                                        fillOpacity={0.6}
+                                        name={category}
+                                    />
+                                );
+                            })}
+                        </AreaChart>
+                        ) : (
                         <AreaChart data={projectMetrics.sprintData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprintStart" tick={{ fontSize: 11 }} />
@@ -168,6 +245,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                                 );
                             })}
                         </AreaChart>
+                        )}
                     </ResponsiveContainer>
                 </section>
                 )}
@@ -271,8 +349,24 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
 
                 {/* Velocity Chart */}
                 <section>
-                    <h3 className="text-sm font-semibold text-gray-700 mb-1">{CHART_TITLES.WEEKLY_PERFORMANCE}</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-1">
+                        {isKwMode ? 'Tägliche Leistung' : CHART_TITLES.WEEKLY_PERFORMANCE}
+                    </h3>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.SMALL}>
+                        {isKwMode ? (
+                        <BarChart data={dailyTotalData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS_PER_WEEK]} />
+                            <Bar dataKey="totalHours" fill="#3b82f6" name={TOOLTIP_LABELS.HOURS_PER_WEEK} />
+                            <ReferenceLine
+                                y={projectMetrics.averageVelocity / 7}
+                                stroke="red"
+                                label={{ value: 'Durchschnitt', position: 'right' }}
+                            />
+                        </BarChart>
+                        ) : (
                         <BarChart data={projectMetrics.sprintData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprintStart" />
@@ -285,6 +379,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                                 label={{ value: 'Durchschnitt', position: 'right' }}
                             />
                         </BarChart>
+                        )}
                     </ResponsiveContainer>
                 </section>
 
@@ -292,27 +387,33 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                 <section>
                     <h3 className="text-sm font-semibold text-gray-700 mb-1">{CHART_TITLES.CUMULATIVE_PROGRESS}</h3>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.SMALL}>
-                        <AreaChart data={projectMetrics.sprintData.map((sprint, index, array) => ({
-                            sprint: `Sprint ${index + 1}`,
-                            cumulativeHours: array
-                                .slice(0, index + 1)
-                                .reduce((sum, s) => sum + s.totalHours, 0)
+                        {isKwMode ? (
+                        <AreaChart data={dailyTotalData.map((d, i, arr) => ({
+                            day: d.day,
+                            cumulativeHours: arr.slice(0, i + 1).reduce((s, x) => s + x.totalHours, 0),
                         }))}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="sprint" />
-                            <YAxis />
+                            <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
                             <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.TOTAL_HOURS]}
                             />
-                            <Area
-                                type="monotone"
-                                dataKey="cumulativeHours"
-                                stroke="#8884d8"
-                                fill="#8884d8"
-                                fillOpacity={0.3}
-                                name="Kumulierte Stunden"
-                            />
+                            <Area type="monotone" dataKey="cumulativeHours" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} name="Kumulierte Stunden" />
                         </AreaChart>
+                        ) : (
+                        <AreaChart data={projectMetrics.sprintData.map((sprint, index, array) => ({
+                            kw: sprint.sprintStart,
+                            cumulativeHours: array.slice(0, index + 1).reduce((sum, s) => sum + s.totalHours, 0),
+                        }))}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="kw" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.TOTAL_HOURS]}
+                            />
+                            <Area type="monotone" dataKey="cumulativeHours" stroke="#8884d8" fill="#8884d8" fillOpacity={0.3} name="Kumulierte Stunden" />
+                        </AreaChart>
+                        )}
                     </ResponsiveContainer>
                 </section>
 

@@ -1038,6 +1038,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         selectedCategory={selectedCategory}
         onCategorySelect={setSelectedCategory}
         timelogs={windowTimelogs}
+        allTimelogs={timelogs}
         usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
       />
 

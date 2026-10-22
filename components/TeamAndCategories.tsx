@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { CHART_CONFIG, CHART_TITLES, CATEGORIES, COLORS as CONFIG_COLORS } from '../config/dashboardConfig';
 import { Timelog } from '@/types/dashboard';
+import { useDashboardContext } from '@/context/DashboardContext';
 
 const CATEGORY_KEYS = Object.values(CATEGORIES) as string[];
 const CAT_LABELS: Record<string, string> = {
@@ -48,6 +49,7 @@ interface TeamAndCategoriesProps {
     selectedCategory: string | null;
     onCategorySelect: (category: string | null) => void;
     timelogs: Timelog[];
+    allTimelogs: Timelog[];
     usernameToName: Record<string, string>;
 }
 
@@ -80,8 +82,11 @@ function buildCategoryRadarData(timelogs: Timelog[], categoryKey: string, teamMe
 
 const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
     pieData, barData, COLORS, userLastLogged, teamMembers,
-    selectedCategory, onCategorySelect, timelogs, usernameToName,
+    selectedCategory, onCategorySelect, timelogs, allTimelogs, usernameToName,
 }) => {
+    const ctx = useDashboardContext();
+    const isAllMode = !ctx?.timeWindow || ctx.timeWindow === 'all';
+
     const formatLastLogged = (iso: string | null) => {
         if (!iso) return 'Noch keine Buchung';
         const d = new Date(iso);
@@ -90,6 +95,25 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
         if (days === 1) return 'Gestern';
         return `vor ${days} Tagen`;
     };
+
+    // Per-username booking counts
+    const windowCountByUsername: Record<string, number> = {};
+    timelogs.forEach(t => {
+        windowCountByUsername[t.user.username] = (windowCountByUsername[t.user.username] ?? 0) + 1;
+    });
+    const totalCountByUsername: Record<string, number> = {};
+    allTimelogs.forEach(t => {
+        totalCountByUsername[t.user.username] = (totalCountByUsername[t.user.username] ?? 0) + 1;
+    });
+
+    // Last booking per username from full timelogs
+    const lastLoggedAll: Record<string, string | null> = {};
+    teamMembers.forEach(u => {
+        const logs = allTimelogs.filter(t => t.user.username === u);
+        lastLoggedAll[u] = logs.length
+            ? logs.reduce((a, b) => a.spentAt > b.spentAt ? a : b).spentAt
+            : null;
+    });
 
     const maxHours = Math.max(
         ...teamMembers.flatMap(u => buildRadarData(timelogs, u).map(d => d.hours)),
@@ -252,16 +276,36 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                         <h4 className="text-sm font-medium text-gray-700 mb-2">Letzte Buchung pro Teammitglied</h4>
                         <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 text-sm">
                             {teamMembers.map(username => {
-                                const last = userLastLogged[username] ?? null;
-                                const hasLogged = last !== null;
+                                const windowCount = windowCountByUsername[username] ?? 0;
+                                const totalCount = totalCountByUsername[username] ?? 0;
+                                const displayName = usernameToName[username] ?? username;
+                                const hasWindowActivity = windowCount > 0;
                                 return (
-                                    <div key={username} className="flex items-center justify-between px-4 py-2">
-                                        <span className={`font-medium ${hasLogged ? 'text-gray-800' : 'text-red-500'}`}>
-                                            {username}
+                                    <div
+                                        key={username}
+                                        className="grid px-4 py-2 gap-x-4 items-center"
+                                        style={{ gridTemplateColumns: isAllMode ? '1fr 7rem 7rem' : '1fr 3rem 5rem' }}
+                                    >
+                                        <span className={`font-medium truncate ${hasWindowActivity ? 'text-gray-800' : 'text-gray-400'}`}>
+                                            {displayName}
                                         </span>
-                                        <span className={`text-xs ${hasLogged ? 'text-gray-500' : 'text-red-400 font-semibold'}`}>
-                                            {formatLastLogged(last)}
-                                        </span>
+                                        {isAllMode ? (
+                                            <>
+                                                <span className={`tabular-nums text-right text-xs ${hasWindowActivity ? 'text-blue-700 font-semibold' : 'text-gray-400'}`}>
+                                                    {totalCount} Buchungen
+                                                </span>
+                                                <span className={`text-right text-xs ${hasWindowActivity ? 'text-gray-500' : 'text-red-400 font-semibold'}`}>
+                                                    {formatLastLogged(lastLoggedAll[username] ?? null)}
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className={`tabular-nums text-right text-xs font-semibold ${hasWindowActivity ? 'text-blue-700' : 'text-gray-400'}`}>
+                                                    {windowCount}
+                                                </span>
+                                                <span className={`text-right text-xs ${hasWindowActivity ? 'text-blue-700' : 'text-gray-400'}`}>Buchungen</span>
+                                            </>
+                                        )}
                                     </div>
                                 );
                             })}
