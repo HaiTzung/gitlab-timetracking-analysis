@@ -73,6 +73,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   const [error, setError] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [backgroundRefreshing, setBackgroundRefreshing] = useState(false);
+  const [bgLoaded, setBgLoaded] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
@@ -424,30 +425,32 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   }, []);
 
   const manualRefresh = useCallback(async () => {
-    // Save scroll position so the page doesn't jump when we clear state
     const scroller = document.getElementById('main-scroll');
     const scrollY = scroller?.scrollTop ?? 0;
     setBackgroundRefreshing(true);
+    setBgLoaded(0);
     setError(null);
     setTimelogs([]);
     setIssues([]);
     setEpics([]);
     setIssueStatuses(new Map());
     setLoadedCount(0);
+
+    const tick = () => setBgLoaded((n) => n + 1);
+
     try {
       await Promise.all([
-        fetchAllIssues(),
-        fetchAllEpics(),
-        fetchWorkItemStatuses(),
-        ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
+        fetchAllIssues().then(tick),
+        fetchAllEpics().then(tick),
+        fetchWorkItemStatuses().then(tick),
+        ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username).then(tick)),
       ]);
-      await fetchIssueNotes();
+      await fetchIssueNotes().then(tick);
       setLastRefreshed(new Date());
     } catch {
       setError(ERROR_MESSAGES.LOADING_ERROR);
     } finally {
       setBackgroundRefreshing(false);
-      // Restore scroll position after React has re-rendered with new data
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const s = document.getElementById('main-scroll');
         if (s) s.scrollTop = scrollY;
@@ -931,7 +934,16 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   }
 
   if (error) {
-    return <div className="alert alert--danger">{error}</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-gray-50">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 8v4M12 16h.01" />
+        </svg>
+        <p className="text-red-600 font-semibold text-sm">Fehler beim Laden</p>
+        <p className="text-red-500 text-xs max-w-sm text-center">{error}</p>
+      </div>
+    );
   }
 
   if (timelogs.length === 0) {
@@ -980,10 +992,13 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   return (
     <>
     <div className="space-y-10">
-      {/* Background refresh indicator */}
+      {/* Background refresh progress bar */}
       {backgroundRefreshing && (
         <div className="fixed top-14 left-0 right-0 z-30 h-0.5 bg-blue-100 overflow-hidden">
-          <div className="h-full bg-blue-500 animate-pulse w-full" />
+          <div
+            className="h-full bg-blue-500 transition-all duration-300"
+            style={{ width: `${Math.round((bgLoaded / totalFetchCount) * 100)}%` }}
+          />
         </div>
       )}
       {/* Filter chip */}

@@ -135,6 +135,42 @@ export default function Sidebar({ open }: SidebarProps) {
     else setDraftEnd(val);
   };
 
+  const handleCsvExport = () => {
+    if (!ctx) return;
+    const { timeWindow, customStart, customEnd } = ctx;
+    const now = new Date();
+    let from: Date | null = null;
+    let to: Date = now;
+    if (timeWindow === '7d')        from = new Date(now.getTime() - 7 * 86400000);
+    else if (timeWindow === '14d')  from = new Date(now.getTime() - 14 * 86400000);
+    else if (timeWindow === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1); }
+    else if (timeWindow === 'custom' || timeWindow === 'kw') { from = customStart; if (customEnd) to = customEnd; }
+    const filtered = ctx.timelogs.filter(t => {
+      const d = new Date(t.spentAt);
+      return (!from || d >= from) && d <= to;
+    });
+    const header = 'Benutzer,Anzeigename,Datum,Stunden,Issue-Nr,Issue-Titel,Kategorie,Geschätzt (h),Gesamt gebucht (h)\n';
+    const rows = filtered
+      .sort((a, b) => a.spentAt.localeCompare(b.spentAt))
+      .map(t => {
+        const category = t.issue?.labels?.nodes?.find(l => l.title.startsWith('category::'))?.title ?? '';
+        const hours = (t.timeSpent / 3600).toFixed(2);
+        const date = t.spentAt.slice(0, 10);
+        const title = (t.issue?.title ?? '').replace(/"/g, '""');
+        const iid = t.issue?.iid ?? '';
+        const estimated = t.issue?.timeEstimate ? (t.issue.timeEstimate / 3600).toFixed(2) : '';
+        const totalSpent = t.issue?.totalTimeSpent ? (t.issue.totalTimeSpent / 3600).toFixed(2) : '';
+        return `"${t.user.username}","${t.user.name}","${date}","${hours}","${iid}","${title}","${category}","${estimated}","${totalSpent}"`;
+      }).join('\n');
+    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `timelogs-${timeWindow}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const switchMode = (m: "kw" | "custom") => {
     setMode(m);
     if (m === "kw") {
@@ -188,7 +224,7 @@ export default function Sidebar({ open }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Time window — pinned to bottom */}
+        {/* Time window + actions — pinned to bottom */}
         <div className="px-3 pt-3 border-t border-gray-200 mt-2">
           <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
             Zeitfenster
@@ -275,6 +311,48 @@ export default function Sidebar({ open }: SidebarProps) {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Actions + dark mode toggle */}
+        <div className="px-3 py-3 border-t border-gray-200 flex items-center gap-2">
+          {/* CSV Export */}
+          <button
+            onClick={handleCsvExport}
+            disabled={!ctx || ctx.timelogs.length === 0}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="CSV exportieren"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 2v8M5 7l3 3 3-3" />
+              <path d="M3 13h10" />
+            </svg>
+            CSV
+          </button>
+
+          {/* Refresh */}
+          <button
+            onClick={ctx?.onRefresh}
+            disabled={!ctx}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Daten neu laden"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" />
+              <path d="M13.5 2v3h-3" />
+            </svg>
+            Laden
+          </button>
+
+          {/* Dark mode toggle (no functionality yet) */}
+          <button
+            className="flex items-center justify-center w-8 h-8 rounded-md text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors flex-shrink-0"
+            title="Dark Mode (demnächst)"
+            aria-label="Toggle dark mode"
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z" />
+            </svg>
+          </button>
         </div>
       </div>
     </aside>
