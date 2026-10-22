@@ -6,8 +6,9 @@ import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG } from '@/confi
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { format, parseISO, eachWeekOfInterval, addDays } from 'date-fns';
+import { format, parseISO, eachWeekOfInterval, addDays, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useDashboardContext } from '@/context/DashboardContext';
 
 function buildCategoryIssueCount(issues: Issue[]) {
     const CATEGORY_VALUES = Object.values(CATEGORIES) as string[];
@@ -22,6 +23,19 @@ function buildCategoryIssueCount(issues: Issue[]) {
             total: catIssues.length,
         };
     }).filter(c => c.total > 0);
+}
+
+function buildCategoryIssueCountForWeek(issues: Issue[], weekStart: Date, weekEnd: Date) {
+    const getMainCategory = (issue: Issue) =>
+        (Object.values(CATEGORIES) as string[]).find(c => issue.labels?.nodes?.some(l => l.title === c)) ?? '';
+    return (Object.values(CATEGORIES) as string[]).map(cat => {
+        const catIssues = issues.filter(i => getMainCategory(i) === cat);
+        return {
+            category: cat.replace('category::', ''),
+            opened: catIssues.filter(i => { const d = parseISO(i.createdAt); return d >= weekStart && d <= weekEnd; }).length,
+            closed: catIssues.filter(i => { if (!i.closedAt) return false; const d = parseISO(i.closedAt); return d >= weekStart && d <= weekEnd; }).length,
+        };
+    });
 }
 
 function buildWeeklyIssueVolume(issues: Issue[]) {
@@ -394,6 +408,25 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
     const weeklyVolume = buildWeeklyIssueVolume(issues);
     const catIssueCounts = buildCategoryIssueCount(issues);
 
+    const ctx = useDashboardContext();
+    const isKwMode = ctx?.timeWindow === 'kw' && !!ctx.customStart && !!ctx.customEnd;
+
+    const catComparisonData = isKwMode ? (() => {
+        const currStart = ctx!.customStart!;
+        const currEnd = ctx!.customEnd!;
+        const prevStart = subDays(currStart, 7);
+        const prevEnd = subDays(currEnd, 7);
+        const curr = buildCategoryIssueCountForWeek(issues, currStart, currEnd);
+        const prev = buildCategoryIssueCountForWeek(issues, prevStart, prevEnd);
+        return curr.map((c, i) => ({
+            category: c.category,
+            prevOpened: prev[i].opened,
+            prevClosed: prev[i].closed,
+            opened: c.opened,
+            closed: c.closed,
+        })).filter(c => c.prevOpened + c.prevClosed + c.opened + c.closed > 0);
+    })() : [];
+
     return (
         <div id="issue-zeitanalyse" className="bg-white p-4 rounded-lg shadow">
             {/* Header */}
@@ -402,11 +435,46 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
             </div>
 
             {/* Category issue count chart */}
-            {catIssueCounts.length > 0 && (
+            {(isKwMode ? catComparisonData.length > 0 : catIssueCounts.length > 0) && (
                 <div className="mb-8">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Issues pro Kategorie — Offen vs. Geschlossen</h4>
-                    <p className="text-xs text-gray-400 mb-3">Gesamtstand aller Issues je Kategorie</p>
+                    <p className="text-xs text-gray-400 mb-3">
+                        {isKwMode ? 'Aktivität in der gewählten KW vs. Vorwoche' : 'Gesamtstand aller Issues je Kategorie'}
+                    </p>
                     <ResponsiveContainer width="100%" height={200}>
+                        {isKwMode ? (
+                        <BarChart data={catComparisonData} barCategoryGap="20%">
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="category" tick={{ fontSize: 11 }} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Issues', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
+                            <Tooltip
+                                labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                formatter={(v: number, name: string) => [v,
+                                    name === 'prevOpened' ? '(Vorwoche) Erstellt' :
+                                    name === 'prevClosed' ? '(Vorwoche) Geschlossen' :
+                                    name === 'opened'     ? 'Erstellt' : 'Geschlossen']}
+                            />
+                            <Legend content={() => (
+                                <div className="flex gap-4 justify-center text-xs mt-1 text-gray-700">
+                                    {[
+                                        { color: '#fca5a5', label: '(Vorwoche) Erstellt' },
+                                        { color: '#86efac', label: '(Vorwoche) Geschlossen' },
+                                        { color: '#ef4444', label: 'Erstellt' },
+                                        { color: '#22c55e', label: 'Geschlossen' },
+                                    ].map(({ color, label }) => (
+                                        <span key={label} className="flex items-center gap-1">
+                                            <span style={{ backgroundColor: color }} className="inline-block w-3 h-3 rounded-sm" />
+                                            {label}
+                                        </span>
+                                    ))}
+                                </div>
+                            )} />
+                            <Bar dataKey="prevOpened" fill="#fca5a5" name="prevOpened" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="prevClosed" fill="#86efac" name="prevClosed" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="opened"     fill="#ef4444" name="opened"     radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="closed"     fill="#22c55e" name="closed"     radius={[3, 3, 0, 0]} />
+                        </BarChart>
+                        ) : (
                         <BarChart data={catIssueCounts}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="category" tick={{ fontSize: 11 }} />
@@ -419,6 +487,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                             <Bar dataKey="opened" fill="#ef4444" name="opened" radius={[3, 3, 0, 0]} />
                             <Bar dataKey="closed" fill="#22c55e" name="closed" radius={[3, 3, 0, 0]} />
                         </BarChart>
+                        )}
                     </ResponsiveContainer>
                 </div>
             )}

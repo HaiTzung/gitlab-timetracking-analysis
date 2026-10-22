@@ -168,6 +168,47 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                     </ResponsiveContainer>
                 </div>
 
+                {/* Radar charts — one per category, team members as corners */}
+                <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-1">Teammitglieder pro Kategorie</h4>
+                    <p className="text-xs text-gray-400 mb-4">Stunden pro Person je Kategorie — gemeinsame Skala</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {CATEGORY_KEYS.map(catKey => {
+                            const data = buildCategoryRadarData(timelogs, catKey, teamMembers, usernameToName);
+                            const total = data.reduce((s, d) => s + d.hours, 0);
+                            return (
+                                <div key={catKey} className="flex flex-col items-center">
+                                    <RadarChart
+                                        width={220}
+                                        height={200}
+                                        data={data}
+                                        margin={{ top: 24, right: 48, bottom: 24, left: 48 }}
+                                    >
+                                        <PolarGrid stroke="#e5e7eb" />
+                                        <PolarAngleAxis
+                                            dataKey="member"
+                                            tick={(props) => <RadarTick {...props} />}
+                                        />
+                                        <Radar
+                                            dataKey="hours"
+                                            stroke={RADAR_COLOR}
+                                            fill={RADAR_COLOR}
+                                            fillOpacity={0.25}
+                                            strokeWidth={1.5}
+                                        />
+                                        <Tooltip
+                                            formatter={(v: number) => [`${v}h`, 'Stunden']}
+                                            labelStyle={{ fontSize: 11 }}
+                                        />
+                                    </RadarChart>
+                                    <p className="text-xs font-medium text-gray-700 text-center leading-tight mt-1">{CAT_LABELS[catKey] ?? catKey}</p>
+                                    <p className="text-xs text-gray-400">{total.toFixed(1)}h gesamt</p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
                 {/* Radar charts — one per team member */}
                 <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-1">Kategorienverteilung pro Teammitglied</h4>
@@ -203,47 +244,6 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                                         />
                                     </RadarChart>
                                     <p className="text-xs font-medium text-gray-700 text-center leading-tight mt-1">{displayName}</p>
-                                    <p className="text-xs text-gray-400">{total.toFixed(1)}h gesamt</p>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Radar charts — one per category, team members as corners */}
-                <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-1">Teammitglieder pro Kategorie</h4>
-                    <p className="text-xs text-gray-400 mb-4">Stunden pro Person je Kategorie — gemeinsame Skala</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        {CATEGORY_KEYS.map(catKey => {
-                            const data = buildCategoryRadarData(timelogs, catKey, teamMembers, usernameToName);
-                            const total = data.reduce((s, d) => s + d.hours, 0);
-                            return (
-                                <div key={catKey} className="flex flex-col items-center">
-                                    <RadarChart
-                                        width={220}
-                                        height={200}
-                                        data={data}
-                                        margin={{ top: 24, right: 48, bottom: 24, left: 48 }}
-                                    >
-                                        <PolarGrid stroke="#e5e7eb" />
-                                        <PolarAngleAxis
-                                            dataKey="member"
-                                            tick={(props) => <RadarTick {...props} />}
-                                        />
-                                        <Radar
-                                            dataKey="hours"
-                                            stroke={RADAR_COLOR}
-                                            fill={RADAR_COLOR}
-                                            fillOpacity={0.25}
-                                            strokeWidth={1.5}
-                                        />
-                                        <Tooltip
-                                            formatter={(v: number) => [`${v}h`, 'Stunden']}
-                                            labelStyle={{ fontSize: 11 }}
-                                        />
-                                    </RadarChart>
-                                    <p className="text-xs font-medium text-gray-700 text-center leading-tight mt-1">{CAT_LABELS[catKey] ?? catKey}</p>
                                     <p className="text-xs text-gray-400">{total.toFixed(1)}h gesamt</p>
                                 </div>
                             );

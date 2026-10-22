@@ -13,7 +13,7 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
 
     return (
         <div id="projektubersicht" className="bg-white p-4 rounded-lg shadow">
-
+            <h2 className="text-xl font-bold mb-6 text-gray-800">Projektübersicht</h2>
             {missingEstimates.length > 0 && (
                 <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
                     <div className="flex items-start gap-2">
