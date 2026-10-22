@@ -113,7 +113,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                                         weight
                                         healthStatus
                                         milestone { title dueDate }
-                                        iteration { title startDate dueDate }
                                         assignees { nodes { name username } }
                                         author { username }
                                         labels { nodes { title } }
@@ -1001,8 +1000,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       <ProjectOverview projectMetrics={projectMetrics} issues={issues} />
 
       <DetailedActivity
-        heatmapData={heatmapData}
-        HEATMAP_COLORS={[...COLORS.HEATMAP]}
         formatTime={formatTime}
         timelogs={timelogs}
         issues={issues}
@@ -1010,11 +1007,15 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         customStart={customStart}
         customEnd={customEnd}
         usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
+        projectMetrics={projectMetrics}
+        COLORS={[...COLORS.PRIMARY]}
       />
+
+      <CategoryDashboard issues={issues} timelogs={timelogs} />
 
       <IssueDashboard issues={issues} epics={epics} issueStatuses={issueStatuses} />
 
-      <IssueAnalysis issueComplexityData={issueComplexityData} COLORS={[...COLORS.PRIMARY]} />
+      <IssueAnalysis issueComplexityData={issueComplexityData} COLORS={[...COLORS.PRIMARY]} issues={issues} />
 
       <TimeSeriesCharts
         projectMetrics={projectMetrics}
@@ -1036,21 +1037,19 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
       />
 
+      <Leaderboard
+        timelogs={timelogs}
+        issues={issues}
+        teamMembers={[...TEAM_MEMBERS]}
+        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
+      />
+
       <ProductivityAnalysis productivityPatterns={productivityPatterns} />
 
       <TeamCollaboration
         collaborationData={collaborationData}
         averageTeamMembersData={averageTeamMembersData}
         COLORS={[...COLORS.PRIMARY]}
-      />
-
-      <CategoryDashboard issues={issues} timelogs={timelogs} />
-
-      <Leaderboard
-        timelogs={timelogs}
-        issues={issues}
-        teamMembers={[...TEAM_MEMBERS]}
-        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
       />
     </div>
 
@@ -1062,8 +1061,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         issues={issues}
         epics={epics}
         issueStatuses={issueStatuses}
-        heatmapData={heatmapData}
-        HEATMAP_COLORS={[...COLORS.HEATMAP]}
         formatTime={formatTime}
         projectMetrics={projectMetrics}
         lineData={lineData}

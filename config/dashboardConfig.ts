@@ -34,7 +34,7 @@ export const CATEGORY_LIST = Object.values(CATEGORIES);
 
 // Color Schemes
 export const COLORS = {
-  PRIMARY: ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"],
+  PRIMARY: ["#e53935", "#f57c00", "#2e7d32", "#29b6f6"],
   TEAM: [
     "#0088FE", // Blau
     "#00C49F", // Türkis
@@ -51,10 +51,10 @@ export const COLORS = {
   ],
   HEATMAP: ["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
   CATEGORY: {
-    [CATEGORIES.REQUIREMENTS_ENGINEERING]: "#8884d8", // Blau
-    [CATEGORIES.ENTWURF]: "#82ca9d", // Grün
-    [CATEGORIES.IMPLEMENTATION_TEST]: "#ffc658", // Gelb
-    [CATEGORIES.PROJEKTMANAGEMENT]: "#ff8042", // Orange
+    [CATEGORIES.REQUIREMENTS_ENGINEERING]: "#e53935", // Rot
+    [CATEGORIES.ENTWURF]: "#f57c00",                  // Orange
+    [CATEGORIES.IMPLEMENTATION_TEST]: "#2e7d32",       // Dunkelgrün
+    [CATEGORIES.PROJEKTMANAGEMENT]: "#29b6f6",         // Hellblau
   },
 } as const;
 

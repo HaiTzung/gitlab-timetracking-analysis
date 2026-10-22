@@ -4,16 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useDashboardContext, TimeWindow } from "@/context/DashboardContext";
 
 const NAV_ITEMS = [
-  { id: "projektubersicht", label: "Projektübersicht" },
-  { id: "detaillierte-aktivitat", label: "Aktivität" },
-  { id: "issue-zeitanalyse", label: "Issues" },
-  { id: "issue-analyse", label: "Issue Analyse" },
+  { id: "projektubersicht",      label: "Projektübersicht" },
+  { id: "detaillierte-aktivitat",label: "Aktivität" },
+  { id: "kategorie-analyse",     label: "Kategorie-Analyse" },
+  { id: "issue-zeitanalyse",     label: "Issues" },
+  { id: "issue-analyse",         label: "Issue Analyse" },
   { id: "zeitliche-entwicklung", label: "Zeitliche Entwicklung" },
-  { id: "team-kategorien", label: "Team & Kategorien" },
+  { id: "team-kategorien",       label: "Team & Kategorien" },
+  { id: "leaderboard",           label: "Leaderboard" },
   { id: "produktivitatsanalyse", label: "Produktivitätsanalyse" },
-  { id: "team-zusammenarbeit", label: "Team Zusammenarbeit" },
-  { id: "kategorie-analyse", label: "Kategorie-Analyse" },
-  { id: "leaderboard", label: "Leaderboard" },
+  { id: "team-zusammenarbeit",   label: "Team Zusammenarbeit" },
 ];
 
 const PRESETS: { label: string; value: TimeWindow }[] = [

@@ -128,10 +128,10 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                                 outerRadius={100}
                                 label={({ name, value }) => value !== undefined ? `${name}\n${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h` : name}
                             >
-                                {pieData.map((entry, index) => (
+                                {pieData.map((entry) => (
                                     <Cell
-                                        key={`cell-${index}`}
-                                        fill={COLORS[index % COLORS.length]}
+                                        key={`cell-${entry.name}`}
+                                        fill={CONFIG_COLORS.CATEGORY[entry.name as keyof typeof CONFIG_COLORS.CATEGORY] ?? '#94a3b8'}
                                     />
                                 ))}
                             </Pie>

@@ -6,8 +6,22 @@ import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG } from '@/confi
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, eachWeekOfInterval, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
+
+function buildWeeklyIssueVolume(issues: Issue[]) {
+    if (!issues.length) return [];
+    const dates = issues.map(i => parseISO(i.createdAt));
+    const earliest = dates.reduce((a, b) => a < b ? a : b);
+    const weeks = eachWeekOfInterval({ start: earliest, end: new Date() }, { weekStartsOn: 1 });
+    return weeks.map(weekStart => {
+        const weekEnd = addDays(weekStart, 6);
+        const label = format(weekStart, "'KW' II/yy", { locale: de });
+        const opened = issues.filter(i => { const d = parseISO(i.createdAt); return d >= weekStart && d <= weekEnd; }).length;
+        const closed = issues.filter(i => { if (!i.closedAt) return false; const d = parseISO(i.closedAt); return d >= weekStart && d <= weekEnd; }).length;
+        return { week: label, opened, closed };
+    }).filter(w => w.opened > 0 || w.closed > 0);
+}
 
 interface IssueDashboardProps {
     issues: Issue[];
@@ -111,7 +125,7 @@ function IssueRow({ issue, depth = 0, issueStatuses }: { issue: Issue; depth?: n
     const category = getMainCategory(issue);
     const isClosed = issue.state === 'closed';
     const health = healthColor(issue.healthStatus);
-    const hasMetadata = issue.milestone || issue.iteration || issue.healthStatus || issue.dueDate;
+    const hasMetadata = issue.milestone || issue.healthStatus || issue.dueDate;
 
     return (
         <div
@@ -158,11 +172,6 @@ function IssueRow({ issue, depth = 0, issueStatuses }: { issue: Issue; depth?: n
                         }`}>
                             {issue.milestone.title}
                             {issue.milestone.dueDate && ` · ${fmtDate(issue.milestone.dueDate)}`}
-                        </span>
-                    )}
-                    {issue.iteration && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 border border-blue-100 rounded px-1.5 py-0.5">
-                            {issue.iteration.title}
                         </span>
                     )}
                     {issue.dueDate && (
@@ -367,21 +376,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
     // Orphans: issues not assigned to any epic
     const orphanIssues = filteredIssues.filter(i => !assignedIids.has(i.iid));
 
-    const issuesWithTime = allSorted.map(issue => ({
-        ...issue,
-        mainCategory: getMainCategory(issue),
-        estimatedH: (issue.timeEstimate || 0) / 3600,
-        spentH: (issue.totalTimeSpent || 0) / 3600,
-    })).filter(i => i.mainCategory && (i.estimatedH > 0 || i.spentH > 0));
-
-    const categoryComparison = CATEGORY_VALUES.map(cat => {
-        const catIssues = issuesWithTime.filter(i => i.mainCategory === cat && i.spentH > 0);
-        return {
-            category: cat.replace('category::', ''),
-            estimated: catIssues.reduce((s, i) => s + i.estimatedH, 0),
-            actual: catIssues.reduce((s, i) => s + i.spentH, 0),
-        };
-    }).filter(c => c.estimated > 0 || c.actual > 0);
+    const weeklyVolume = buildWeeklyIssueVolume(issues);
 
     return (
         <div id="issue-zeitanalyse" className="bg-white p-4 rounded-lg shadow">
@@ -390,20 +385,23 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                 <h2 className="text-xl font-bold text-gray-800">Issues</h2>
             </div>
 
-            {/* Category comparison chart — always all issues */}
-            {categoryComparison.length > 0 && (
+            {/* Weekly volume chart */}
+            {weeklyVolume.length > 0 && (
                 <div className="mb-8">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Geschätzt vs. Gebucht pro Kategorie</h4>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Neue vs. geschlossene Issues pro Woche</h4>
+                    <p className="text-xs text-gray-400 mb-3">Nicht kumulativ — zeigt Aktivität pro Kalenderwoche</p>
                     <ResponsiveContainer width="100%" height={220}>
-                        <BarChart data={categoryComparison}>
+                        <BarChart data={weeklyVolume}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="category" />
-                            <YAxis />
-                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
-                                formatter={(value: number, name: string) => [`${value.toFixed(1)}h`, name]} />
-                            <Legend />
-                            <Bar dataKey="estimated" fill="#8884d8" name="Geschätzt" />
-                            <Bar dataKey="actual" fill="#82ca9d" name="Gebucht" />
+                            <XAxis dataKey="week" tick={{ fontSize: 11 }} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                            <Tooltip
+                                labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                formatter={(v: number, name: string) => [v, name === 'opened' ? 'Geöffnet' : 'Geschlossen']}
+                            />
+                            <Legend formatter={n => n === 'opened' ? 'Geöffnet' : 'Geschlossen'} />
+                            <Bar dataKey="opened" fill="#ef4444" name="opened" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="closed" fill="#22c55e" name="closed" radius={[3, 3, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -412,12 +410,12 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
             {/* Toggle + count — only controls the issue tree below */}
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                 <div className="flex rounded-lg bg-gray-100 p-1 gap-1">
-                    {(['opened', 'all', 'closed'] as StateFilter[]).map(s => (
+                    {(['all', 'opened', 'closed'] as StateFilter[]).map(s => (
                         <button key={s} onClick={() => setStateFilter(s)}
                             className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                                 stateFilter === s ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                             }`}>
-                            {s === 'opened' ? '🟢 Offen' : s === 'closed' ? '⚫ Geschlossen' : '📋 Alle'}
+                            {s === 'opened' ? 'Offen' : s === 'closed' ? 'Geschlossen' : 'Alle'}
                         </button>
                     ))}
                 </div>

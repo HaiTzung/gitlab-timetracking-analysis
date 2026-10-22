@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Issue, Epic, Timelog, HeatmapData, ProjectMetrics } from '@/types/dashboard';
+import { Issue, Epic, Timelog, ProjectMetrics } from '@/types/dashboard';
 import { TimeWindow } from '@/context/DashboardContext';
 import DetailedActivity from './DetailedActivity';
 import IssueDashboard from './IssueDashboard';
@@ -25,8 +25,6 @@ export interface PresentationModeProps {
     issues: Issue[];
     epics: Epic[];
     issueStatuses: Map<string, string>;
-    heatmapData: HeatmapData[][];
-    HEATMAP_COLORS: string[];
     formatTime: (seconds: number) => string;
     projectMetrics: ProjectMetrics;
     lineData: Record<string, string | number>[];
@@ -110,8 +108,6 @@ export default function PresentationMode(props: PresentationModeProps) {
                 <div key={slide}>
                     {slide === 0 && (
                         <DetailedActivity
-                            heatmapData={props.heatmapData}
-                            HEATMAP_COLORS={props.HEATMAP_COLORS}
                             formatTime={props.formatTime}
                             timelogs={props.timelogs}
                             issues={props.issues}
@@ -119,6 +115,8 @@ export default function PresentationMode(props: PresentationModeProps) {
                             customStart={props.customStart}
                             customEnd={props.customEnd}
                             usernameToName={props.usernameToName}
+                            projectMetrics={props.projectMetrics}
+                            COLORS={props.COLORS}
                         />
                     )}
                     {slide === 1 && (

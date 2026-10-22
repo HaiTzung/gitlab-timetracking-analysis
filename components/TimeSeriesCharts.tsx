@@ -1,9 +1,11 @@
+'use client';
+
 import React from 'react';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
     ResponsiveContainer, Line, LineChart, Area, AreaChart, ReferenceLine
 } from 'recharts';
-import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS, TIME_CONFIG } from '../config/dashboardConfig';
+import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS } from '../config/dashboardConfig';
 import { ProjectMetrics } from '@/types/dashboard';
 
 interface TimeSeriesChartsProps {
@@ -14,36 +16,17 @@ interface TimeSeriesChartsProps {
     COLORS: string[];
 }
 
-const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({ 
-    projectMetrics, 
-    lineData, 
-    barData, 
-    TEAM_COLORS, 
-    COLORS 
+const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
+    projectMetrics,
+    lineData,
+    barData,
+    TEAM_COLORS,
+    COLORS
 }) => {
     return (
         <div id="zeitliche-entwicklung" className="bg-white p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-6 text-gray-800">Zeitliche Entwicklung</h2>
             <div className="grid grid-cols-1 gap-6">
-                {/* Velocity Chart */}
-                <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.WEEKLY_PERFORMANCE}</h4>
-                    <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.SMALL}>
-                        <BarChart data={projectMetrics.sprintData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="sprintStart" />
-                            <YAxis />
-                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]} />
-                            <Bar dataKey="totalHours" fill="#3b82f6" name={TOOLTIP_LABELS.HOURS_PER_WEEK} />
-                            <ReferenceLine 
-                                y={projectMetrics.averageVelocity} 
-                                stroke="red" 
-                                label={{ value: 'Durchschnitt', position: 'right' }} 
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-
                 {/* Cumulative Progress */}
                 <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.CUMULATIVE_PROGRESS}</h4>
@@ -57,14 +40,14 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprint" />
                             <YAxis />
-                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.TOTAL_HOURS]}
                             />
-                            <Area 
-                                type="monotone" 
-                                dataKey="cumulativeHours" 
-                                stroke="#8884d8" 
-                                fill="#8884d8" 
+                            <Area
+                                type="monotone"
+                                dataKey="cumulativeHours"
+                                stroke="#8884d8"
+                                fill="#8884d8"
                                 fillOpacity={0.3}
                                 name="Kumulierte Stunden"
                             />
@@ -86,7 +69,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             />
                             <Legend />
                             {Object.keys(projectMetrics.sprintData[0]?.userHours || {}).map((user, index) => (
-                                <Bar 
+                                <Bar
                                     key={user}
                                     dataKey={`userHours.${user}`}
                                     name={user}
@@ -94,6 +77,25 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                                     fill={TEAM_COLORS[index % TEAM_COLORS.length]}
                                 />
                             ))}
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                {/* Velocity Chart */}
+                <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.WEEKLY_PERFORMANCE}</h4>
+                    <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.SMALL}>
+                        <BarChart data={projectMetrics.sprintData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="sprintStart" />
+                            <YAxis />
+                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]} />
+                            <Bar dataKey="totalHours" fill="#3b82f6" name={TOOLTIP_LABELS.HOURS_PER_WEEK} />
+                            <ReferenceLine
+                                y={projectMetrics.averageVelocity}
+                                stroke="red"
+                                label={{ value: 'Durchschnitt', position: 'right' }}
+                            />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -109,11 +111,11 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                                 return (parseInt(yearA) * 100 + parseInt(weekA)) - (parseInt(yearB) * 100 + parseInt(weekB));
                             });
                         })()}>
-                            <XAxis 
-                                dataKey="week" 
+                            <XAxis
+                                dataKey="week"
                                 tickFormatter={(value) => `KW ${value.split(' ')[1]}`}
                             />
-                            <YAxis 
+                            <YAxis
                                 label={{ value: TOOLTIP_LABELS.HOURS, angle: -90, position: 'insideLeft' }}
                             />
                             <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
@@ -138,46 +140,17 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                                     />
                                 );
                             })}
-                            <ReferenceLine 
-                                y={projectMetrics.averageVelocity / barData.length} 
-                                stroke="red" 
+                            <ReferenceLine
+                                y={projectMetrics.averageVelocity / barData.length}
+                                stroke="red"
                                 strokeDasharray="3 3"
-                                label={{ 
-                                    value: 'Team Durchschnitt', 
+                                label={{
+                                    value: 'Team Durchschnitt',
                                     position: 'right',
                                     fill: 'red'
-                                }} 
+                                }}
                             />
                         </LineChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* Category Trend */}
-                <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.CATEGORY_TREND}</h4>
-                    <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.SMALL}>
-                        <AreaChart data={projectMetrics.sprintData}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="sprintStart" />
-                            <YAxis />
-                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
-                                labelFormatter={(value) => `Sprint ${value}`}
-                                formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}
-                            />
-                            <Legend />
-                            {Object.keys(projectMetrics.sprintData[0]?.categoryHours || {}).map((category, index) => (
-                                <Area
-                                    key={category}
-                                    type="monotone"
-                                    dataKey={`categoryHours.${category}`}
-                                    stackId="1"
-                                    stroke={COLORS[index % COLORS.length]}
-                                    fill={COLORS[index % COLORS.length]}
-                                    fillOpacity={0.6}
-                                    name={category}
-                                />
-                            ))}
-                        </AreaChart>
                     </ResponsiveContainer>
                 </div>
             </div>
@@ -185,4 +158,4 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
     );
 };
 
-export default TimeSeriesCharts; 
+export default TimeSeriesCharts;

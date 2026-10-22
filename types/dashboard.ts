@@ -22,7 +22,6 @@ export interface Issue {
     weight: number | null;
     healthStatus: string | null;
     milestone: { title: string; dueDate: string | null } | null;
-    iteration: { title: string; startDate: string; dueDate: string } | null;
     assignees: { nodes: Array<{ name: string; username: string }> };
     author: { username: string } | null;
     labels: {
