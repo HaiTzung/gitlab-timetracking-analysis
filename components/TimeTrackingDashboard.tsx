@@ -41,7 +41,6 @@ import ProductivityAnalysis from "./ProductivityAnalysis";
 import TeamCollaboration from "./TeamCollaboration";
 import IssueAnalysis from "./IssueAnalysis";
 import IssueDashboard from "./IssueDashboard";
-import CategoryDashboard from "./CategoryDashboard";
 import DetailedActivity from "./DetailedActivity";
 import Leaderboard from "./Leaderboard";
 import PresentationMode from "./PresentationMode";
@@ -1009,9 +1008,10 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
         projectMetrics={projectMetrics}
         COLORS={[...COLORS.PRIMARY]}
+        lineData={lineData}
+        barData={barData}
+        TEAM_COLORS={[...COLORS.TEAM]}
       />
-
-      <CategoryDashboard issues={issues} timelogs={timelogs} />
 
       <IssueDashboard issues={issues} epics={epics} issueStatuses={issueStatuses} />
 
@@ -1023,6 +1023,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         barData={barData}
         TEAM_COLORS={[...COLORS.TEAM]}
         COLORS={[...COLORS.PRIMARY]}
+        issues={issues}
+        timelogs={timelogs}
       />
 
       <TeamAndCategories

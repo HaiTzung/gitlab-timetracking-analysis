@@ -7,14 +7,12 @@ import DetailedActivity from './DetailedActivity';
 import IssueDashboard from './IssueDashboard';
 import TimeSeriesCharts from './TimeSeriesCharts';
 import TeamAndCategories from './TeamAndCategories';
-import CategoryDashboard from './CategoryDashboard';
 
 const SLIDES = [
     { id: 'detaillierte-aktivitat', label: 'Aktivität' },
     { id: 'issue-zeitanalyse',      label: 'Issues' },
     { id: 'zeitliche-entwicklung',  label: 'Zeitliche Entwicklung' },
     { id: 'team-kategorien',        label: 'Team & Kategorien' },
-    { id: 'kategorie-analyse',      label: 'Kategorie-Analyse' },
 ];
 
 export interface PresentationModeProps {
@@ -117,6 +115,9 @@ export default function PresentationMode(props: PresentationModeProps) {
                             usernameToName={props.usernameToName}
                             projectMetrics={props.projectMetrics}
                             COLORS={props.COLORS}
+                            lineData={props.lineData}
+                            barData={props.barData}
+                            TEAM_COLORS={props.TEAM_COLORS}
                         />
                     )}
                     {slide === 1 && (
@@ -134,6 +135,8 @@ export default function PresentationMode(props: PresentationModeProps) {
                             barData={props.barData}
                             TEAM_COLORS={props.TEAM_COLORS}
                             COLORS={props.COLORS}
+                            issues={props.issues}
+                            timelogs={props.timelogs}
                         />
                     )}
                     {slide === 3 && (
@@ -147,12 +150,6 @@ export default function PresentationMode(props: PresentationModeProps) {
                             onCategorySelect={props.onCategorySelect}
                             timelogs={props.windowTimelogs}
                             usernameToName={props.usernameToName}
-                        />
-                    )}
-                    {slide === 4 && (
-                        <CategoryDashboard
-                            issues={props.issues}
-                            timelogs={props.timelogs}
                         />
                     )}
                 </div>

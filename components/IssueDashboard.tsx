@@ -108,10 +108,10 @@ function stateBadge(state: string, statusName?: string) {
 function AssigneeChips({ assignees }: { assignees: Issue['assignees'] }) {
     if (!assignees?.nodes?.length) return <span className="text-gray-300 text-xs">—</span>;
     return (
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex flex-wrap gap-1 justify-end" style={{ maxWidth: '52px' }}>
             {assignees.nodes.map(a => (
                 <span key={a.username} title={a.name}
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold">
+                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex-shrink-0">
                     {a.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
                 </span>
             ))}
