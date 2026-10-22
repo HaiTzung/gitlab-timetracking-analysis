@@ -48,10 +48,26 @@ export default function PresentationMode(props: PresentationModeProps) {
     const { onClose } = props;
     const [slide, setSlide] = useState(0);
     const contentRef = useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     const total = SLIDES.length;
 
     const prev = () => setSlide(s => Math.max(0, s - 1));
     const next = () => setSlide(s => Math.min(total - 1, s + 1));
+
+    // Enter fullscreen on mount, exit on unmount
+    useEffect(() => {
+        const el = containerRef.current;
+        if (el?.requestFullscreen) el.requestFullscreen().catch(() => {});
+        const onFsChange = () => {
+            if (!document.fullscreenElement) onClose();
+        };
+        document.addEventListener('fullscreenchange', onFsChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', onFsChange);
+            if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Reset scroll when changing slides
     useEffect(() => {
@@ -63,7 +79,6 @@ export default function PresentationMode(props: PresentationModeProps) {
         const handler = (e: KeyboardEvent) => {
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); next(); }
             else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); prev(); }
-            else if (e.key === 'Escape') onClose();
         };
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
@@ -74,12 +89,12 @@ export default function PresentationMode(props: PresentationModeProps) {
     const nextLabel = slide < total - 1 ? SLIDES[slide + 1].label : null;
 
     return (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+        <div ref={containerRef} className="fixed inset-0 z-50 bg-white flex flex-col">
             {/* Header */}
             <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-gray-50">
                 <h2 className="text-lg font-semibold text-gray-900">{SLIDES[slide].label}</h2>
                 <button
-                    onClick={onClose}
+                    onClick={() => document.exitFullscreen().catch(() => onClose())}
                     className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors"
                     aria-label="Präsentation beenden"
                 >
