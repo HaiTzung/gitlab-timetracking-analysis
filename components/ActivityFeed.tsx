@@ -26,6 +26,7 @@ interface ActivityFeedProps {
     timeWindow: TimeWindow;
     customStart: Date | null;
     customEnd: Date | null;
+    usernameToName: Record<string, string>;
 }
 
 const TYPE_LABELS: Record<EventType, string> = {
@@ -145,7 +146,7 @@ function formatDate(isoDate: string): string {
     return format(new Date(isoDate), 'dd.MM.yyyy HH:mm', { locale: de });
 }
 
-export default function ActivityFeed({ timelogs, issues, timeWindow, customStart, customEnd }: ActivityFeedProps) {
+export default function ActivityFeed({ timelogs, issues, timeWindow, customStart, customEnd, usernameToName }: ActivityFeedProps) {
     const [open, setOpen] = useState(false);
     const [localWindow, setLocalWindow] = useState<'today' | '7d'>('today');
     const [typeFilter, setTypeFilter] = useState<Set<EventType>>(
@@ -188,10 +189,11 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
 
         for (const issue of issues) {
             if (inWindow(issue.createdAt, from, to)) {
+                const username = issue.author?.username ?? '';
                 result.push({
                     type: 'issue_opened',
                     timestamp: issue.createdAt,
-                    actor: issue.author?.username ?? 'Unbekannt',
+                    actor: usernameToName[username] ?? username,
                     issueIid: issue.iid,
                     issueTitle: issue.title,
                     issueUrl: issue.webUrl,
@@ -334,7 +336,9 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
                                                     <><strong>{ev.actor}</strong> hat <strong>{ev.hours}h</strong> gebucht</>
                                                 )}
                                                 {ev.type === 'issue_opened' && (
-                                                    <><strong>{ev.actor}</strong> hat ein Issue geöffnet</>
+                                                    ev.actor
+                                                        ? <><strong>{ev.actor}</strong> hat ein Issue geöffnet</>
+                                                        : <>Issue geöffnet</>
                                                 )}
                                                 {ev.type === 'issue_closed' && (
                                                     <>Issue geschlossen</>

@@ -14,6 +14,7 @@ interface DetailedActivityProps {
   timeWindow: TimeWindow;
   customStart: Date | null;
   customEnd: Date | null;
+  usernameToName: Record<string, string>;
 }
 
 const DetailedActivity: React.FC<DetailedActivityProps> = ({
@@ -25,6 +26,7 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
   timeWindow,
   customStart,
   customEnd,
+  usernameToName,
 }) => {
   const getColorIndex = (value: number) => {
     if (value === 0) return 0;
@@ -145,6 +147,7 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
           timeWindow={timeWindow}
           customStart={customStart}
           customEnd={customEnd}
+          usernameToName={usernameToName}
         />
       </div>
     </div>

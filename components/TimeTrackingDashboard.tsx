@@ -1005,6 +1005,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         timeWindow={timeWindow}
         customStart={customStart}
         customEnd={customEnd}
+        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
       />
 
       <IssueDashboard issues={issues} epics={epics} issueStatuses={issueStatuses} />
