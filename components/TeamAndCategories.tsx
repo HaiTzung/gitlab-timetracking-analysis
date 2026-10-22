@@ -260,7 +260,7 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                             <BarChart data={barData}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
-                                <YAxis />
+                                <YAxis label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} tick={{ fontSize: 11 }} />
                                 <Tooltip
                                     labelStyle={{ color: '#111827', fontWeight: 600 }}
                                     formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}

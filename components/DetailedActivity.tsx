@@ -91,7 +91,7 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
                 tickFormatter={isKwMode ? (v) => v : (value) => `KW ${value.split(' ')[1]}`}
                 tick={{ fontSize: 11 }}
               />
-              <YAxis label={{ value: 'h', angle: -90, position: 'insideLeft' }} tick={{ fontSize: 11 }} />
+              <YAxis label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} tick={{ fontSize: 11 }} />
               <Tooltip
                 labelStyle={{ color: '#111827', fontWeight: 600 }}
                 formatter={(value: number, name: string) => [`${value}h`, name]}

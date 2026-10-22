@@ -410,7 +410,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                         <BarChart data={catIssueCounts}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="category" tick={{ fontSize: 11 }} />
-                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Issues', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip
                                 labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 formatter={(v: number, name: string) => [v, name === 'opened' ? 'Offen' : 'Geschlossen']}

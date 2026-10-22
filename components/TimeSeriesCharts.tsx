@@ -196,7 +196,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                         <AreaChart data={dailyCategoryData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} unit="h" />
+                            <YAxis tick={{ fontSize: 11 }} unit="h" label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip
                                 labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 formatter={(value: number, name: string) => [`${value.toFixed(1)}h`, name]}
@@ -222,7 +222,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                         <AreaChart data={projectMetrics.sprintData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprintStart" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip
                                 labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 labelFormatter={(value) => `Sprint ${value}`}
@@ -284,7 +284,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             <BarChart data={weeklyVolume}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Issues', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                                 <Tooltip
                                     labelStyle={{ color: '#111827', fontWeight: 600 }}
                                     formatter={(v: number, name: string) => [v, name === 'opened' ? 'Geöffnet' : 'Geschlossen']}
@@ -306,7 +306,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                             <LineChart data={burndown}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="week" tick={{ fontSize: 11 }} />
-                                <YAxis tick={{ fontSize: 11 }} />
+                                <YAxis tick={{ fontSize: 11 }} label={{ value: 'Issues', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                                 <Tooltip
                                     labelStyle={{ color: '#111827', fontWeight: 600 }}
                                     formatter={(v: number, n: string) => [v, n === 'opened' ? 'Geöffnet' : 'Geschlossen']}
@@ -327,7 +327,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                         <BarChart data={projectMetrics.sprintData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprintStart" />
-                            <YAxis />
+                            <YAxis label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 labelFormatter={(value) => `Sprint ${value}`}
                                 formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}
@@ -357,7 +357,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                         <BarChart data={dailyTotalData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.HOURS_PER_WEEK]} />
                             <Bar dataKey="totalHours" fill="#3b82f6" name={TOOLTIP_LABELS.HOURS_PER_WEEK} />
                             <ReferenceLine
@@ -370,7 +370,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                         <BarChart data={projectMetrics.sprintData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="sprintStart" />
-                            <YAxis />
+                            <YAxis label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]} />
                             <Bar dataKey="totalHours" fill="#3b82f6" name={TOOLTIP_LABELS.HOURS_PER_WEEK} />
                             <ReferenceLine
@@ -394,7 +394,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                         }))}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.TOTAL_HOURS]}
                             />
@@ -407,7 +407,7 @@ const TimeSeriesCharts: React.FC<TimeSeriesChartsProps> = ({
                         }))}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="kw" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
                                 formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, TOOLTIP_LABELS.TOTAL_HOURS]}
                             />
