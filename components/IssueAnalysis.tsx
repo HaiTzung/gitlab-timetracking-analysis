@@ -8,6 +8,7 @@ import {
 import { CHART_CONFIG, CHART_TITLES, CHART_LABELS, CATEGORIES, COLORS as CONFIG_COLORS } from '@/config/dashboardConfig';
 import { Issue, IssueComplexityData } from '@/types/dashboard';
 import { differenceInDays, parseISO } from 'date-fns';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface IssueAnalysisProps {
     issueComplexityData: IssueComplexityData[];
@@ -79,26 +80,24 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
     const scatter = buildScatter(issues);
     const aging = buildAging(issues);
     const maxScatter = Math.max(...scatter.map(d => Math.max(d.estimated, d.actual)), 1);
+    const cc = useChartColors();
 
     return (
-        <div id="issue-analyse" className="bg-white p-4 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">Issue Analyse</h2>
+        <div id="issue-analyse" className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">Issue Analyse</h2>
             <div className="grid grid-cols-1 gap-6">
 
                 {/* Geschätzt vs. Gebucht pro Kategorie */}
                 {false && categoryComparison.length > 0 && (
                     <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Geschätzt vs. Gebucht pro Kategorie</h4>
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Geschätzt vs. Gebucht pro Kategorie</h4>
                         <ResponsiveContainer width="100%" height={220}>
                             <BarChart data={categoryComparison}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="category" />
                                 <YAxis />
-                                <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                <Tooltip labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
                                     formatter={(value: number, name: string) => [`${value.toFixed(1)}h`, name]} />
-                                <Legend />
-                                <Bar dataKey="estimated" fill="#8884d8" name="Geschätzt" />
-                                <Bar dataKey="actual" fill="#82ca9d" name="Gebucht" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -107,7 +106,7 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                 {/* Issue Complexity */}
                 {false && (
                 <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.ISSUE_COMPLEXITY}</h4>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{CHART_TITLES.ISSUE_COMPLEXITY}</h4>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
                         <BarChart data={issueComplexityData}>
                             <CartesianGrid strokeDasharray="3 3" />
@@ -124,7 +123,7 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                                     style: { textAnchor: 'middle' }
                                 }}
                             />
-                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }}
+                            <Tooltip labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
                                 formatter={(value: number, name: string) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h`, name]}
                                 labelFormatter={(label) => `${label}`}
                             />
@@ -149,15 +148,15 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                 {/* Offene Issues nach Alter */}
                 {aging.some(b => b.count > 0) && (
                     <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Offene Issues nach Alter</h4>
-                        <p className="text-xs text-gray-400 mb-3">Wie lange sind offene Issues bereits offen?</p>
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Offene Issues nach Alter</h4>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Wie lange sind offene Issues bereits offen?</p>
                         <ResponsiveContainer width="100%" height={180}>
                             <BarChart data={aging}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Anzahl Issues', angle: -90, position: 'insideLeft', offset: 10, fontSize: 11, fill: '#6b7280' }} />
                                 <Tooltip
-                                    labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                    labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
                                     formatter={(v: number) => [v, 'Issues']}
                                 />
                                 <Bar dataKey="count" name="Issues" radius={[4, 4, 0, 0]}>
@@ -173,8 +172,8 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                 {/* Schätzgenauigkeit scatter */}
                 {scatter.length > 0 && (
                     <div>
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Schätzgenauigkeit — Geschätzt vs. Tatsächlich</h4>
-                        <p className="text-xs text-gray-400 mb-3">Punkte auf der Linie = perfekte Schätzung · darüber = Überschreitung · darunter = Unterschreitung</p>
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Schätzgenauigkeit — Geschätzt vs. Tatsächlich</h4>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Punkte auf der Linie = perfekte Schätzung · darüber = Überschreitung · darunter = Unterschreitung</p>
                         <ResponsiveContainer width="100%" height={280}>
                             <ScatterChart margin={{ top: 10, right: 20, bottom: 30, left: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" />
@@ -186,10 +185,10 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                                         if (!payload?.length) return null;
                                         const d = payload[0].payload;
                                         return (
-                                            <div className="bg-white border border-gray-200 rounded-lg p-2 text-xs shadow">
-                                                <p className="font-semibold text-gray-900 mb-1">#{d.iid} {d.title}</p>
-                                                <p className="text-gray-900">Geschätzt: {d.estimated}h</p>
-                                                <p className="text-gray-900">Tatsächlich: {d.actual}h</p>
+                                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-2 text-xs shadow">
+                                                <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1">#{d.iid} {d.title}</p>
+                                                <p className="text-gray-900 dark:text-gray-100">Geschätzt: {d.estimated}h</p>
+                                                <p className="text-gray-900 dark:text-gray-100">Tatsächlich: {d.actual}h</p>
                                             </div>
                                         );
                                     }}

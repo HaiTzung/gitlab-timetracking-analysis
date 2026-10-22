@@ -918,24 +918,24 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   if (loading && !backgroundRefreshing) {
     const percent = Math.round((loadedCount / totalFetchCount) * 100);
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50">
-        <p className="text-gray-600 text-sm font-medium">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-950">
+        <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">
           {ERROR_MESSAGES.LOADING} ({loadedCount}/{totalFetchCount})
         </p>
-        <div className="w-72 h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className="w-72 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-blue-500 rounded-full transition-all duration-300"
             style={{ width: `${percent}%` }}
           />
         </div>
-        <p className="text-gray-400 text-xs">{percent}%</p>
+        <p className="text-gray-400 dark:text-gray-500 text-xs">{percent}%</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-gray-50">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-gray-50 dark:bg-gray-950">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
           <path d="M12 8v4M12 16h.01" />
@@ -1096,6 +1096,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         timeWindow={timeWindow}
         customStart={customStart}
         customEnd={customEnd}
+        onSetTimeWindow={(w) => setTimeWindow(w)}
+        onSetCustomDates={(start, end) => { setCustomStart(start); setCustomEnd(end); }}
       />
     )}
     </>

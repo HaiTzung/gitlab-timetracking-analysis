@@ -243,8 +243,8 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
 
     return (
         <section id="zeitaufwand-tabelle">
-            <h3 className="text-sm font-semibold text-gray-700 mb-1">Zeitaufwand pro Person & Kategorie</h3>
-            <p className="text-xs text-gray-400 mb-3">Gebuchte Stunden nach Teammitglied und Kategorie</p>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Zeitaufwand pro Person & Kategorie</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Gebuchte Stunden nach Teammitglied und Kategorie</p>
 
             {/* Week picker */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -252,25 +252,25 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                     <button
                         onClick={() => { setWeekOffset(w => w - 1); setShowAll(false); }}
                         disabled={showAll || weekOffset <= minOffset}
-                        className="rounded-md px-2 py-1 text-sm border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="rounded-md px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         aria-label="Vorherige Woche"
                     >
                         ←
                     </button>
 
-                    <div className="min-w-[220px] text-center px-3 py-1 rounded-md border border-gray-200 bg-white">
+                    <div className="min-w-[220px] text-center px-3 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
                         {showAll ? (
-                            <span className="text-sm font-medium text-gray-800">Gesamter Zeitraum</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Gesamter Zeitraum</span>
                         ) : (
-                            <span className="text-sm font-medium text-gray-800">{kwLabel}</span>
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{kwLabel}</span>
                         )}
-                        <span className="block text-xs text-gray-400">{rangeLabel}</span>
+                        <span className="block text-xs text-gray-400 dark:text-gray-500">{rangeLabel}</span>
                     </div>
 
                     <button
                         onClick={() => { setWeekOffset(w => w + 1); setShowAll(false); }}
                         disabled={weekOffset >= 0 || showAll}
-                        className="rounded-md px-2 py-1 text-sm border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="rounded-md px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         aria-label="Nächste Woche"
                     >
                         →
@@ -281,8 +281,8 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                     onClick={() => { setWeekOffset(0); setShowAll(false); }}
                     className={`rounded-md px-3 py-1 text-xs font-medium border transition-colors ${
                         !showAll && weekOffset === 0
-                            ? 'bg-blue-50 border-blue-300 text-blue-700'
-                            : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                            ? 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                 >
                     Aktuelle Woche
@@ -292,8 +292,8 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                     onClick={() => setShowAll(true)}
                     className={`rounded-md px-3 py-1 text-xs font-medium border transition-colors ${
                         showAll
-                            ? 'bg-blue-50 border-blue-300 text-blue-700'
-                            : 'border-gray-200 text-gray-600 hover:bg-gray-100'
+                            ? 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                 >
                     Gesamter Zeitraum
@@ -304,7 +304,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                 <button
                     onClick={handleCopyMarkdown}
                     disabled={users.length === 0}
-                    className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                     {copied ? '✓ Kopiert' : '⎘ Kopieren'}
                 </button>
@@ -312,7 +312,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                 <button
                     onClick={handleExportMarkdown}
                     disabled={users.length === 0}
-                    className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                     ⬇ Markdown
                 </button>
@@ -320,19 +320,19 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
 
             {/* Table */}
             {users.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8">
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">
                     Keine gebuchten Stunden in diesem Zeitraum.
                 </p>
             ) : (
-                <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead className="bg-gray-50">
+                <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-800">
                             <tr>
-                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
                                     Person
                                 </th>
                                 {categories.map(cat => (
-                                    <th key={cat} className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    <th key={cat} className="px-4 py-2.5 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
                                         <span className="flex items-center justify-end gap-1.5">
                                             <span
                                                 className="w-2 h-2 rounded-full flex-shrink-0"
@@ -342,15 +342,15 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                                         </span>
                                     </th>
                                 ))}
-                                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider whitespace-nowrap">
                                     Total
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-100">
+                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-700">
                             {users.map((user, i) => (
-                                <tr key={user} className={i % 2 === 1 ? 'bg-gray-50' : 'bg-white'}>
-                                    <td className="px-4 py-2.5 text-gray-800 font-medium whitespace-nowrap">
+                                <tr key={user} className={i % 2 === 1 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}>
+                                    <td className="px-4 py-2.5 text-gray-800 dark:text-gray-100 font-medium whitespace-nowrap">
                                         {user}
                                     </td>
                                     {categories.map(cat => {
@@ -358,29 +358,29 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                                         return (
                                             <td key={cat} className="px-4 py-2.5 text-right tabular-nums whitespace-nowrap">
                                                 {val > 0
-                                                    ? <span className="text-gray-800">{fmt(val)}</span>
-                                                    : <span className="text-gray-300">–</span>
+                                                    ? <span className="text-gray-800 dark:text-gray-100">{fmt(val)}</span>
+                                                    : <span className="text-gray-300 dark:text-gray-600">–</span>
                                                 }
                                             </td>
                                         );
                                     })}
-                                    <td className="px-4 py-2.5 text-right font-semibold text-gray-800 tabular-nums whitespace-nowrap">
+                                    <td className="px-4 py-2.5 text-right font-semibold text-gray-800 dark:text-gray-100 tabular-nums whitespace-nowrap">
                                         {fmt(rowTotals.get(user) ?? 0)}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                         <tfoot>
-                            <tr className="bg-gray-100 border-t border-gray-200">
-                                <td className="px-4 py-2.5 font-semibold text-gray-700">
+                            <tr className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                                <td className="px-4 py-2.5 font-semibold text-gray-700 dark:text-gray-200">
                                     Total
                                 </td>
                                 {categories.map(cat => (
-                                    <td key={cat} className="px-4 py-2.5 text-right font-semibold text-gray-700 tabular-nums whitespace-nowrap">
+                                    <td key={cat} className="px-4 py-2.5 text-right font-semibold text-gray-700 dark:text-gray-200 tabular-nums whitespace-nowrap">
                                         {fmt(colTotals.get(cat) ?? 0)}
                                     </td>
                                 ))}
-                                <td className="px-4 py-2.5 text-right font-bold text-blue-700 bg-blue-50 tabular-nums whitespace-nowrap">
+                                <td className="px-4 py-2.5 text-right font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 tabular-nums whitespace-nowrap">
                                     {fmt(grandTotal)}
                                 </td>
                             </tr>

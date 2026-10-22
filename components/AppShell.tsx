@@ -35,7 +35,7 @@ export default function AppShell({ children }: AppShellProps) {
 
   return (
     <DashboardProvider>
-      <div className="flex flex-col h-screen bg-gray-50">
+      <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-950">
         <TitleBar onMenuToggle={() => setSidebarOpen((prev) => !prev)} projectName={PROJECT_NAME} />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar open={sidebarOpen} />

@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { addDays, isSameDay, parseISO, format } from "date-fns";
 import { de } from "date-fns/locale";
+import { useChartColors } from "@/hooks/useChartColors";
 
 interface DetailedActivityProps {
   formatTime: (seconds: number) => string;
@@ -63,6 +64,7 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
   TEAM_COLORS,
 }) => {
   const isKwMode = timeWindow === 'kw' && !!customStart && !!customEnd;
+  const cc = useChartColors();
 
   const chartData = isKwMode
     ? buildDailyData(timelogs, customStart!, customEnd!, barData)
@@ -75,25 +77,30 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
   const avgPerPersonPerDay = projectMetrics.averageVelocity / Math.max(barData.length, 1) / 7;
   const avgPerPersonPerWeek = projectMetrics.averageVelocity / Math.max(barData.length, 1);
   return (
-    <div id="detaillierte-aktivitat" className="bg-white p-6 rounded-lg shadow">
-      <h2 className="text-xl font-bold mb-6 text-gray-800">Aktivität</h2>
+    <div id="detaillierte-aktivitat" className="bg-white dark:bg-gray-900 p-6 rounded-lg shadow">
+      <h2 className="text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">Aktivität</h2>
       <div className="space-y-10">
         <TimeSpentTable timelogs={timelogs} />
 
         <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-2">
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             {isKwMode ? 'Stunden pro Tag pro Person' : 'Stunden pro Woche pro Person'}
           </h4>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
               <XAxis
                 dataKey="week"
                 tickFormatter={isKwMode ? (v) => v : (value) => `KW ${value.split(' ')[1]}`}
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 11, fill: cc.axis }}
               />
-              <YAxis label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} tick={{ fontSize: 11 }} />
+              <YAxis
+                label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11, fill: cc.axis }}
+                tick={{ fontSize: 11, fill: cc.axis }}
+              />
               <Tooltip
-                labelStyle={{ color: '#111827', fontWeight: 600 }}
+                contentStyle={{ background: cc.tooltipBg, border: `1px solid ${cc.tooltipBorder}`, color: cc.tooltipLabel }}
+                labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
                 formatter={(value: number, name: string) => [`${value}h`, name]}
                 labelFormatter={(value) => isKwMode ? value : `Kalenderwoche ${value.split(' ')[1]}`}
               />

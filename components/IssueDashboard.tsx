@@ -9,6 +9,8 @@ import {
 import { format, parseISO, eachWeekOfInterval, addDays, subDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useDashboardContext } from '@/context/DashboardContext';
+import { useChartColors } from '@/hooks/useChartColors';
+import { useTheme } from 'next-themes';
 
 function buildCategoryIssueCount(issues: Issue[]) {
     const CATEGORY_VALUES = Object.values(CATEGORIES) as string[];
@@ -97,10 +99,10 @@ function deviationBadge(estimated: number, spent: number) {
     const label = estimated === 0
         ? (spent > 0 ? '+∞%' : '0%')
         : `${pct > 0 ? '+' : ''}${pct.toFixed(1)}%`;
-    const color = estimated === 0 ? 'bg-gray-100 text-gray-600'
-        : Math.abs(pct) <= DEVIATION_THRESHOLDS.EXCELLENT ? 'bg-green-100 text-green-700'
-        : Math.abs(pct) <= DEVIATION_THRESHOLDS.GOOD ? 'bg-yellow-100 text-yellow-700'
-        : 'bg-red-100 text-red-700';
+    const color = estimated === 0 ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+        : Math.abs(pct) <= DEVIATION_THRESHOLDS.EXCELLENT ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+        : Math.abs(pct) <= DEVIATION_THRESHOLDS.GOOD ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300'
+        : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300';
     return <span className={`inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium ${color}`}>{label}</span>;
 }
 
@@ -109,25 +111,25 @@ function stateBadge(state: string, statusName?: string) {
         statusName?.toLowerCase().includes('in progress');
 
     if (state === 'opened' && isInProgress) return (
-        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5 font-medium">
+        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
             In Bearbeitung
         </span>
     );
     if (state === 'opened') return (
-        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-green-50 text-green-700 border border-green-200 rounded px-1.5 py-0.5 font-medium">
+        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 rounded px-1.5 py-0.5 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
             Offen
         </span>
     );
     if (state === 'closed') return (
-        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-gray-100 text-gray-500 border border-gray-200 rounded px-1.5 py-0.5 font-medium">
+        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
             Geschlossen
         </span>
     );
     return (
-        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-yellow-50 text-yellow-700 border border-yellow-200 rounded px-1.5 py-0.5 font-medium">
+        <span className="inline-flex items-center gap-1 flex-shrink-0 text-xs bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800 rounded px-1.5 py-0.5 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
             {state}
         </span>
@@ -135,12 +137,12 @@ function stateBadge(state: string, statusName?: string) {
 }
 
 function AssigneeChips({ assignees }: { assignees: Issue['assignees'] }) {
-    if (!assignees?.nodes?.length) return <span className="text-gray-300 text-xs">—</span>;
+    if (!assignees?.nodes?.length) return <span className="text-gray-300 dark:text-gray-600 text-xs">—</span>;
     return (
         <div className="flex flex-wrap gap-1 justify-end" style={{ maxWidth: '52px' }}>
             {assignees.nodes.map(a => (
                 <span key={a.username} title={a.name}
-                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex-shrink-0">
+                    className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-semibold flex-shrink-0">
                     {a.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
                 </span>
             ))}
@@ -158,23 +160,23 @@ function IssueRow({ issue, depth = 0, issueStatuses }: { issue: Issue; depth?: n
 
     return (
         <div
-            className="py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
+            className="py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-700 last:border-0"
             style={{ paddingLeft: `${16 + depth * 20}px`, paddingRight: '12px' }}
         >
             <div className="flex items-center gap-3">
-                <span className="text-gray-300 text-xs font-mono flex-shrink-0 w-10">#{issue.iid}</span>
+                <span className="text-gray-300 dark:text-gray-600 text-xs font-mono flex-shrink-0 w-10">#{issue.iid}</span>
                 <a href={issue.webUrl || `${GITLAB_CONFIG.ISSUE_BASE_URL}/${issue.iid}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="flex-1 text-gray-700 hover:text-blue-600 hover:underline truncate font-medium">
+                    className="flex-1 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:underline truncate font-medium">
                     {issue.title}
                 </a>
                 {stateBadge(issue.state, issueStatuses.get(issue.iid))}
                 {category && (
-                    <span className="hidden lg:inline-flex flex-shrink-0 text-xs bg-purple-50 text-purple-600 border border-purple-100 rounded px-1.5 py-0.5 truncate max-w-32">
+                    <span className="hidden lg:inline-flex flex-shrink-0 text-xs bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-300 border border-purple-100 dark:border-purple-800 rounded px-1.5 py-0.5 truncate max-w-32">
                         {category.replace('category::', '')}
                     </span>
                 )}
-                <div className="flex-shrink-0 text-xs text-gray-400 w-20 text-right hidden sm:block">
+                <div className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500 w-20 text-right hidden sm:block">
                     {estimated > 0 ? `${estimated.toFixed(1)}h` : '—'} / {spent > 0 ? `${spent.toFixed(1)}h` : '—'}
                 </div>
                 <div className="flex-shrink-0 w-16 hidden md:flex justify-end">
@@ -188,7 +190,7 @@ function IssueRow({ issue, depth = 0, issueStatuses }: { issue: Issue; depth?: n
             {hasMetadata && (
                 <div className="flex flex-wrap gap-1.5 mt-1.5 ml-[52px]">
                     {issue.healthStatus && health && (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-white border border-gray-200 rounded px-1.5 py-0.5">
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5">
                             <span className={`w-1.5 h-1.5 rounded-full ${health}`} />
                             {healthLabel(issue.healthStatus)}
                         </span>
@@ -196,8 +198,8 @@ function IssueRow({ issue, depth = 0, issueStatuses }: { issue: Issue; depth?: n
                     {issue.milestone && (
                         <span className={`inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 ${
                             isOverdue(issue.milestone.dueDate, isClosed)
-                                ? 'bg-red-50 text-red-600 border border-red-200'
-                                : 'bg-orange-50 text-orange-600 border border-orange-200'
+                                ? 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                                : 'bg-orange-50 dark:bg-orange-950 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800'
                         }`}>
                             {issue.milestone.title}
                             {issue.milestone.dueDate && ` · ${fmtDate(issue.milestone.dueDate)}`}
@@ -206,15 +208,15 @@ function IssueRow({ issue, depth = 0, issueStatuses }: { issue: Issue; depth?: n
                     {issue.dueDate && (
                         <span className={`inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 ${
                             isOverdue(issue.dueDate, isClosed)
-                                ? 'bg-red-50 text-red-600 border border-red-200'
-                                : 'bg-gray-50 text-gray-500 border border-gray-200'
+                                ? 'bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800'
+                                : 'bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600'
                         }`}>
                             {fmtDate(issue.dueDate)}
                             {isOverdue(issue.dueDate, isClosed) && ' · Überfällig'}
                         </span>
                     )}
                     {issue.weight != null && issue.weight > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-gray-50 text-gray-500 border border-gray-200 rounded px-1.5 py-0.5">
+                        <span className="inline-flex items-center gap-1 text-xs bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5">
                             {issue.weight}
                         </span>
                     )}
@@ -231,10 +233,10 @@ function EpicProgressBar({ dc }: { dc: Epic['descendantCounts'] }) {
     const pct = Math.round((dc.closedIssues / total) * 100);
     return (
         <div className="flex items-center gap-2 hidden sm:flex">
-            <div className="w-20 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div className="w-20 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div className="h-full bg-green-500 rounded-full" style={{ width: `${pct}%` }} />
             </div>
-            <span className="text-xs text-gray-400">{dc.closedIssues}/{total}</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{dc.closedIssues}/{total}</span>
         </div>
     );
 }
@@ -262,16 +264,16 @@ function EpicNode({
 
     const duePast = isOverdue(epic.dueDate, isClosed);
 
-    const bgDepth = depth === 0 ? 'bg-gray-100' : depth === 1 ? 'bg-gray-50' : 'bg-white';
-    const borderAccent = depth === 0 ? 'border-l-2 border-l-gray-400' : 'border-l-2 border-l-gray-300';
+    const bgDepth = depth === 0 ? 'bg-gray-100 dark:bg-gray-800' : depth === 1 ? 'bg-gray-50 dark:bg-gray-800/60' : 'bg-white dark:bg-gray-900';
+    const borderAccent = depth === 0 ? 'border-l-2 border-l-gray-400 dark:border-l-gray-500' : 'border-l-2 border-l-gray-300 dark:border-l-gray-600';
 
     return (
         <div className={`${bgDepth}`}>
             <button onClick={() => setExpanded(e => !e)}
-                className={`w-full flex items-center gap-2 py-2 hover:brightness-95 text-left border-b border-gray-200 ${borderAccent}`}
+                className={`w-full flex items-center gap-2 py-2 hover:brightness-95 text-left border-b border-gray-200 dark:border-gray-700 ${borderAccent}`}
                 style={{ paddingLeft: `${12 + depth * 20}px`, paddingRight: '12px' }}>
                 <svg
-                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                    className={`w-3 h-3 text-gray-400 dark:text-gray-500 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
                     viewBox="0 0 12 12" fill="currentColor">
                     <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -280,12 +282,12 @@ function EpicNode({
                     <div className="flex items-center gap-2 flex-wrap">
                         <a href={epic.webUrl} target="_blank" rel="noopener noreferrer"
                             onClick={e => e.stopPropagation()}
-                            className={`font-semibold text-sm hover:text-blue-600 hover:underline truncate ${isClosed ? 'text-gray-400 line-through' : 'text-gray-700'}`}>
+                            className={`font-semibold text-sm hover:text-blue-600 dark:hover:text-blue-400 hover:underline truncate ${isClosed ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-200'}`}>
                             {epic.title}
                         </a>
                     </div>
                     {(epic.startDate || epic.dueDate || epicEstH > 0) && (
-                        <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
+                        <div className="flex gap-3 mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                             {epic.startDate && <span>von {fmtDate(epic.startDate)}</span>}
                             {epic.dueDate && (
                                 <span className={duePast ? 'text-red-500 font-medium' : ''}>
@@ -300,7 +302,7 @@ function EpicNode({
                 </div>
 
                 <EpicProgressBar dc={epic.descendantCounts} />
-                <span className="text-xs text-gray-400 flex-shrink-0 hidden sm:block">
+                <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0 hidden sm:block">
                     {totalIssues} offen{totalIssues !== 1 ? '' : ''}
                 </span>
             </button>
@@ -324,16 +326,16 @@ function EpicNode({
 function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues: Issue[]; issueStatuses: Map<string, string>; defaultExpanded?: boolean }) {
     const [expanded, setExpanded] = useState(defaultExpanded);
     return (
-        <div className="bg-gray-100 border-l-2 border-l-gray-300">
+        <div className="bg-gray-100 dark:bg-gray-800 border-l-2 border-l-gray-300 dark:border-l-gray-600">
             <button onClick={() => setExpanded(e => !e)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:brightness-95 text-left border-b border-gray-200">
+                className="w-full flex items-center gap-2 px-3 py-2 hover:brightness-95 text-left border-b border-gray-200 dark:border-gray-700">
                 <svg
-                    className={`w-3 h-3 text-gray-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                    className={`w-3 h-3 text-gray-400 dark:text-gray-500 flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
                     viewBox="0 0 12 12" fill="currentColor">
                     <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span className="font-semibold text-sm text-gray-500 flex-1">Ohne Epic</span>
-                <span className="text-xs text-gray-400 hidden sm:block">{issues.length} Issue{issues.length !== 1 ? 's' : ''}</span>
+                <span className="font-semibold text-sm text-gray-500 dark:text-gray-400 flex-1">Ohne Epic</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">{issues.length} Issue{issues.length !== 1 ? 's' : ''}</span>
             </button>
             {expanded && issues.map(issue => (
                 <IssueRow key={issue.iid} issue={issue} depth={1} issueStatuses={issueStatuses} />
@@ -344,6 +346,11 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
 
 const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses, defaultExpanded = true }) => {
     const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
+    const { resolvedTheme } = useTheme();
+    const dark = resolvedTheme === 'dark';
+    // Previous-week bars: muted in dark mode so primary bars stay visually dominant
+    const prevOpenedColor = dark ? '#991b1b' : '#fca5a5'; // red-800 vs red-300
+    const prevClosedColor = dark ? '#166534' : '#86efac'; // green-800 vs green-300
 
     // All issues sorted newest-first
     const allSorted = [...issues].sort((a, b) => Number(b.iid) - Number(a.iid));
@@ -409,6 +416,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
     const catIssueCounts = buildCategoryIssueCount(issues);
 
     const ctx = useDashboardContext();
+    const cc = useChartColors();
     const isKwMode = ctx?.timeWindow === 'kw' && !!ctx.customStart && !!ctx.customEnd;
 
     const catComparisonData = isKwMode ? (() => {
@@ -428,17 +436,17 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
     })() : [];
 
     return (
-        <div id="issue-zeitanalyse" className="bg-white p-4 rounded-lg shadow">
+        <div id="issue-zeitanalyse" className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                <h2 className="text-xl font-bold text-gray-800">Issues</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Issues</h2>
             </div>
 
             {/* Category issue count chart */}
             {(isKwMode ? catComparisonData.length > 0 : catIssueCounts.length > 0) && (
                 <div className="mb-8">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Issues pro Kategorie — Offen vs. Geschlossen</h4>
-                    <p className="text-xs text-gray-400 mb-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Issues pro Kategorie — Offen vs. Geschlossen</h4>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
                         {isKwMode ? 'Aktivität in der gewählten KW vs. Vorwoche' : 'Gesamtstand aller Issues je Kategorie'}
                     </p>
                     <ResponsiveContainer width="100%" height={200}>
@@ -448,17 +456,17 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                             <XAxis dataKey="category" tick={{ fontSize: 11 }} />
                             <YAxis allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Issues', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip
-                                labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
                                 formatter={(v: number, name: string) => [v,
                                     name === 'prevOpened' ? '(Vorwoche) Erstellt' :
                                     name === 'prevClosed' ? '(Vorwoche) Geschlossen' :
                                     name === 'opened'     ? 'Erstellt' : 'Geschlossen']}
                             />
                             <Legend content={() => (
-                                <div className="flex gap-4 justify-center text-xs mt-1 text-gray-700">
+                                <div className="flex gap-4 justify-center text-xs mt-1 text-gray-700 dark:text-gray-300">
                                     {[
-                                        { color: '#fca5a5', label: '(Vorwoche) Erstellt' },
-                                        { color: '#86efac', label: '(Vorwoche) Geschlossen' },
+                                        { color: prevOpenedColor, label: '(Vorwoche) Erstellt' },
+                                        { color: prevClosedColor, label: '(Vorwoche) Geschlossen' },
                                         { color: '#ef4444', label: 'Erstellt' },
                                         { color: '#22c55e', label: 'Geschlossen' },
                                     ].map(({ color, label }) => (
@@ -469,8 +477,8 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                                     ))}
                                 </div>
                             )} />
-                            <Bar dataKey="prevOpened" fill="#fca5a5" name="prevOpened" radius={[3, 3, 0, 0]} />
-                            <Bar dataKey="prevClosed" fill="#86efac" name="prevClosed" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="prevOpened" fill={prevOpenedColor} name="prevOpened" radius={[3, 3, 0, 0]} />
+                            <Bar dataKey="prevClosed" fill={prevClosedColor} name="prevClosed" radius={[3, 3, 0, 0]} />
                             <Bar dataKey="opened"     fill="#ef4444" name="opened"     radius={[3, 3, 0, 0]} />
                             <Bar dataKey="closed"     fill="#22c55e" name="closed"     radius={[3, 3, 0, 0]} />
                         </BarChart>
@@ -480,7 +488,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                             <XAxis dataKey="category" tick={{ fontSize: 11 }} />
                             <YAxis allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Issues', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
                             <Tooltip
-                                labelStyle={{ color: '#111827', fontWeight: 600 }}
+                                labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
                                 formatter={(v: number, name: string) => [v, name === 'opened' ? 'Offen' : 'Geschlossen']}
                             />
                             <Legend formatter={n => n === 'opened' ? 'Offen' : 'Geschlossen'} />
@@ -494,19 +502,19 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
 
             {/* Toggle + count — only controls the issue tree below */}
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                <div className="flex rounded-lg bg-gray-100 p-1 gap-1">
+                <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
                     {(['all', 'opened', 'closed'] as StateFilter[]).map(s => (
                         <button key={s} onClick={() => setStateFilter(s)}
                             className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                                stateFilter === s ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                                stateFilter === s ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                             }`}>
                             {s === 'opened' ? 'Offen' : s === 'closed' ? 'Geschlossen' : 'Alle'}
                         </button>
                     ))}
                 </div>
-                <span className="text-sm text-gray-400">{filteredIssues.length} Issues</span>
+                <span className="text-sm text-gray-400 dark:text-gray-500">{filteredIssues.length} Issues</span>
             </div>
-            <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-200">
+            <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
                 <span className="w-2 flex-shrink-0" />
                 <span className="w-10 flex-shrink-0">#</span>
                 <span className="flex-1">Titel</span>
@@ -517,9 +525,9 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
             </div>
 
             {filteredIssues.length === 0 ? (
-                <div className="py-12 text-center text-sm text-gray-400">Keine Issues gefunden</div>
+                <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">Keine Issues gefunden</div>
             ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
                     {rootEpics.map(epic => (
                         <EpicNode key={epic.iid} epic={epic} childEpics={childEpics}
                             epicIssues={epicIssuesFiltered} allEpics={epics} allIssues={filteredIssues}

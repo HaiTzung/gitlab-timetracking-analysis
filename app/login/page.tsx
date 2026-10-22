@@ -36,10 +36,10 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="bg-white rounded-xl shadow-md p-8 w-full max-w-sm">
-                <h1 className="text-xl font-semibold text-gray-800 mb-1">{process.env.NEXT_PUBLIC_PROJECT_NAME ?? 'Dashboard'}</h1>
-                <p className="text-sm text-gray-600 mb-6">Passwort eingeben um fortzufahren</p>
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-md p-8 w-full max-w-sm">
+                <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-1">{process.env.NEXT_PUBLIC_PROJECT_NAME ?? 'Dashboard'}</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Passwort eingeben um fortzufahren</p>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                     <input
@@ -49,7 +49,7 @@ export default function LoginPage() {
                         placeholder="Passwort"
                         autoFocus
                         required
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 dark:bg-gray-800 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
 
                     {error && (

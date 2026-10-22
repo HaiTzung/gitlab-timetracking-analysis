@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Issue, Epic, Timelog, ProjectMetrics } from '@/types/dashboard';
 import { TimeWindow } from '@/context/DashboardContext';
+import { eachWeekOfInterval, startOfWeek, endOfWeek, parseISO, format } from 'date-fns';
+import { de } from 'date-fns/locale';
 import DetailedActivity from './DetailedActivity';
 import IssueDashboard from './IssueDashboard';
 import TimeSeriesCharts from './TimeSeriesCharts';
@@ -38,6 +40,8 @@ export interface PresentationModeProps {
     timeWindow: TimeWindow;
     customStart: Date | null;
     customEnd: Date | null;
+    onSetTimeWindow?: (w: TimeWindow) => void;
+    onSetCustomDates?: (start: Date | null, end: Date | null) => void;
 }
 
 export default function PresentationMode(props: PresentationModeProps) {
@@ -49,6 +53,42 @@ export default function PresentationMode(props: PresentationModeProps) {
 
     const prev = () => setSlide(s => Math.max(0, s - 1));
     const next = () => setSlide(s => Math.min(total - 1, s + 1));
+
+    const kwOptions = useMemo(() => {
+        const logs = props.timelogs;
+        if (!logs.length) return [];
+        const earliest = logs.reduce((min, t) => (t.spentAt < min ? t.spentAt : min), logs[0].spentAt);
+        const start = startOfWeek(parseISO(earliest), { weekStartsOn: 1 });
+        const end = startOfWeek(new Date(), { weekStartsOn: 1 });
+        const weeks = eachWeekOfInterval({ start, end }, { weekStartsOn: 1 });
+        const todayStart = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10);
+        return weeks.map((weekStart) => {
+            const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+            const isCurrent = weekStart.toISOString().slice(0, 10) === todayStart;
+            const base = `KW ${format(weekStart, 'II/yy', { locale: de })} (${format(weekStart, 'dd.MM', { locale: de })}–${format(weekEnd, 'dd.MM', { locale: de })})`;
+            return { label: isCurrent ? `${base} · diese Woche` : base, weekStart, weekEnd };
+        }).reverse();
+    }, [props.timelogs]);
+
+    const selectedKwIndex = useMemo(() => {
+        if (props.timeWindow !== 'kw' || !props.customStart) return '';
+        const startStr = props.customStart.toISOString().slice(0, 10);
+        const idx = kwOptions.findIndex(opt => opt.weekStart.toISOString().slice(0, 10) === startStr);
+        return idx >= 0 ? String(idx) : '';
+    }, [props.timeWindow, props.customStart, kwOptions]);
+
+    const handleKwChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        if (val === '') {
+            props.onSetTimeWindow?.('all');
+            props.onSetCustomDates?.(null, null);
+            return;
+        }
+        const idx = Number(val);
+        const { weekStart, weekEnd } = kwOptions[idx];
+        props.onSetTimeWindow?.('kw');
+        props.onSetCustomDates?.(weekStart, new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59));
+    };
 
     // Enter fullscreen on mount, exit on unmount
     useEffect(() => {
@@ -85,13 +125,31 @@ export default function PresentationMode(props: PresentationModeProps) {
     const nextLabel = slide < total - 1 ? SLIDES[slide + 1].label : null;
 
     return (
-        <div ref={containerRef} className="fixed inset-0 z-50 bg-white flex flex-col">
+        <div ref={containerRef} className="fixed inset-0 z-50 bg-white dark:bg-gray-950 flex flex-col">
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-gray-50">
-                <h2 className="text-lg font-semibold text-gray-900">{SLIDES[slide].label}</h2>
+            <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 shrink-0">{SLIDES[slide].label}</h2>
+
+                {/* KW picker */}
+                <div className="relative mx-4 flex-1 max-w-xs">
+                    <select
+                        value={selectedKwIndex}
+                        onChange={handleKwChange}
+                        className="w-full appearance-none border border-gray-300 dark:border-gray-600 rounded-md pl-2 pr-7 py-1.5 text-xs text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">Alle Wochen</option>
+                        {kwOptions.map((opt, idx) => (
+                            <option key={idx} value={idx}>{opt.label}</option>
+                        ))}
+                    </select>
+                    <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 4l4 4 4-4" />
+                    </svg>
+                </div>
+
                 <button
                     onClick={() => document.exitFullscreen().catch(() => onClose())}
-                    className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors"
+                    className="rounded-lg p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 transition-colors shrink-0"
                     aria-label="Präsentation beenden"
                 >
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -157,11 +215,11 @@ export default function PresentationMode(props: PresentationModeProps) {
             </div>
 
             {/* Bottom navigation bar */}
-            <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50 gap-4">
+            <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 gap-4">
                 <button
                     onClick={prev}
                     disabled={slide === 0}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors min-w-[8rem]"
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors min-w-[8rem]"
                 >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                         <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -169,14 +227,14 @@ export default function PresentationMode(props: PresentationModeProps) {
                     <span className="truncate">{prevLabel ?? ''}</span>
                 </button>
 
-                <span className="text-sm text-gray-500 shrink-0 tabular-nums">
+                <span className="text-sm text-gray-500 dark:text-gray-400 shrink-0 tabular-nums">
                     {slide + 1} / {total}
                 </span>
 
                 <button
                     onClick={next}
                     disabled={slide === total - 1}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors min-w-[8rem] justify-end"
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors min-w-[8rem] justify-end"
                 >
                     <span className="truncate">{nextLabel ?? ''}</span>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">

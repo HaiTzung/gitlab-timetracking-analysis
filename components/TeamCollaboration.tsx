@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
@@ -5,6 +7,7 @@ import {
 } from 'recharts';
 import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS, CHART_LABELS, DISPLAY_CONFIG } from '../config/dashboardConfig';
 import { CollaborationData, AverageTeamMembersData } from '@/types/dashboard';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface TeamCollaborationProps {
     collaborationData: CollaborationData[];
@@ -12,31 +15,32 @@ interface TeamCollaborationProps {
     COLORS: string[];
 }
 
-const TeamCollaboration: React.FC<TeamCollaborationProps> = ({ 
-    collaborationData, 
-    averageTeamMembersData, 
-    COLORS 
+const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
+    collaborationData,
+    averageTeamMembersData,
+    COLORS
 }) => {
+    const cc = useChartColors();
     return (
-        <div id="team-zusammenarbeit" className="bg-white p-4 rounded-lg shadow">
-            <h2 className="text-xl font-bold mb-6 text-gray-800">Team Zusammenarbeit</h2>
+        <div id="team-zusammenarbeit" className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow">
+            <h2 className="text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">Team Zusammenarbeit</h2>
             <div className="grid grid-cols-1 gap-6">
                 {/* Team Collaboration Network */}
                 <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.TOP_COLLABORATIONS}</h4>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{CHART_TITLES.TOP_COLLABORATIONS}</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {collaborationData.slice(0, DISPLAY_CONFIG.TOP_COLLABORATIONS).map((collab, index) => (
-                            <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                            <div key={index} className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-lg font-medium text-gray-800">
+                                        <p className="text-lg font-medium text-gray-800 dark:text-gray-100">
                                             {collab.source} + {collab.target}
                                         </p>
-                                        <p className="text-sm text-gray-600 mt-1">
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                                             {collab.value} gemeinsame Issues
                                         </p>
                                     </div>
-                                    <div className="text-2xl font-bold text-blue-600">
+                                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                                         #{index + 1}
                                     </div>
                                 </div>
@@ -47,7 +51,7 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
 
                 {/* Average Team Members per Issue */}
                 <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">{CHART_TITLES.AVERAGE_TEAM_SIZE}</h4>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{CHART_TITLES.AVERAGE_TEAM_SIZE}</h4>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
                         <BarChart data={averageTeamMembersData}>
                             <CartesianGrid strokeDasharray="3 3" />
@@ -66,7 +70,7 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
                                 domain={[0, (dataMax: number) => Math.ceil(dataMax) + 1]}
                                 tickFormatter={(v: number) => `${v}`}
                             />
-                            <Tooltip labelStyle={{ color: '#111827', fontWeight: 600 }} 
+                            <Tooltip labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
                                 formatter={(value: number) => [`${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}`, TOOLTIP_LABELS.TEAM_MEMBERS]}
                                 labelFormatter={(label) => `${label}`}
                             />

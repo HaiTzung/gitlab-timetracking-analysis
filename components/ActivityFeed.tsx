@@ -44,10 +44,10 @@ const TYPE_COLORS: Record<EventType, string> = {
 };
 
 const TYPE_BG: Record<EventType, string> = {
-    timelog: 'bg-blue-50 border-blue-200 text-blue-700',
-    issue_opened: 'bg-green-50 border-green-200 text-green-700',
-    issue_closed: 'bg-purple-50 border-purple-200 text-purple-700',
-    comment: 'bg-gray-50 border-gray-200 text-gray-600',
+    timelog: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
+    issue_opened: 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300',
+    issue_closed: 'bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
+    comment: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300',
 };
 
 function ClockIcon() {
@@ -90,7 +90,7 @@ function ChevronIcon({ open }: { open: boolean }) {
     return (
         <svg
             width="16" height="16" viewBox="0 0 16 16" fill="none"
-            className={`shrink-0 transition-transform duration-200 text-gray-900 ${open ? 'rotate-180' : ''}`}
+            className={`shrink-0 transition-transform duration-200 text-gray-900 dark:text-gray-100 ${open ? 'rotate-180' : ''}`}
             aria-hidden="true"
         >
             <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -245,16 +245,16 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
     }
 
     return (
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
             {/* Collapsible header */}
             <button
                 onClick={() => setOpen(o => !o)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
             >
-                <span className="text-sm font-medium text-gray-700">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     Aktivitätsverlauf
                     {open && filtered.length > 0 && (
-                        <span className="ml-2 text-xs font-normal text-gray-400">
+                        <span className="ml-2 text-xs font-normal text-gray-400 dark:text-gray-500">
                             {filtered.length} {filtered.length === 1 ? 'Eintrag' : 'Einträge'}
                         </span>
                     )}
@@ -276,10 +276,10 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
                                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                                         active
                                             ? TYPE_BG[type]
-                                            : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                                            : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 hover:border-gray-300 dark:hover:border-gray-600'
                                     }`}
                                 >
-                                    <span className={active ? TYPE_COLORS[type] : 'text-gray-300'}>
+                                    <span className={active ? TYPE_COLORS[type] : 'text-gray-300 dark:text-gray-600'}>
                                         {type === 'timelog' && <ClockIcon />}
                                         {type === 'issue_opened' && <OpenIssueIcon />}
                                         {type === 'issue_closed' && <ClosedIssueIcon />}
@@ -292,23 +292,23 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
 
                         {/* Local window toggle — only shown when global is 'all' */}
                         {timeWindow === 'all' && (
-                            <div className="ml-auto flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                            <div className="ml-auto flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden text-xs">
                                 <button
                                     onClick={() => setLocalWindow('today')}
                                     className={`px-3 py-1 transition-colors ${
                                         localWindow === 'today'
-                                            ? 'bg-gray-800 text-white'
-                                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                                            ? 'bg-gray-800 dark:bg-gray-600 text-white'
+                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                                 >
                                     Heute
                                 </button>
                                 <button
                                     onClick={() => setLocalWindow('7d')}
-                                    className={`px-3 py-1 border-l border-gray-200 transition-colors ${
+                                    className={`px-3 py-1 border-l border-gray-200 dark:border-gray-700 transition-colors ${
                                         localWindow === '7d'
-                                            ? 'bg-gray-800 text-white'
-                                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                                            ? 'bg-gray-800 dark:bg-gray-600 text-white'
+                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                                 >
                                     Letzte 7 Tage
@@ -319,11 +319,11 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
 
                     {/* Event list */}
                     {filtered.length === 0 ? (
-                        <p className="text-sm text-gray-400 text-center py-6">
+                        <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">
                             Keine Aktivität im gewählten Zeitraum.
                         </p>
                     ) : (
-                        <div className="max-h-[480px] overflow-y-auto divide-y divide-gray-100 -mx-4 px-4">
+                        <div className="max-h-[480px] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 -mx-4 px-4">
                             {filtered.map((ev, i) => (
                                 <div key={i} className="py-2.5 flex gap-3">
                                     <div className={`mt-0.5 ${TYPE_COLORS[ev.type]}`}>
@@ -331,7 +331,7 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                                            <span className="text-sm text-gray-800">
+                                            <span className="text-sm text-gray-800 dark:text-gray-100">
                                                 {ev.type === 'timelog' && (
                                                     <><strong>{ev.actor}</strong> hat <strong>{ev.hours}h</strong> gebucht</>
                                                 )}
@@ -349,7 +349,7 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
                                             </span>
                                             <time
                                                 title={formatDate(ev.timestamp)}
-                                                className="text-xs text-gray-400 shrink-0"
+                                                className="text-xs text-gray-400 dark:text-gray-500 shrink-0"
                                             >
                                                 {timeAgo(ev.timestamp)}
                                             </time>
@@ -362,12 +362,12 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
                                                         href={ev.issueUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                                                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 hover:underline"
                                                     >
                                                         #{ev.issueIid} {ev.issueTitle}
                                                     </a>
                                                 ) : (
-                                                    <span className="text-xs text-gray-500">
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
                                                         #{ev.issueIid} {ev.issueTitle}
                                                     </span>
                                                 )}
@@ -376,7 +376,7 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
 
                                         {ev.type === 'comment' && ev.commentBody && (
                                             <div className="mt-1.5 flex items-start justify-between gap-3">
-                                                <p className="text-xs text-gray-600 line-clamp-2 flex-1">
+                                                <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 flex-1">
                                                     {ev.commentBody}
                                                 </p>
                                                 {ev.commentUrl && (
@@ -384,7 +384,7 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
                                                         href={ev.commentUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline shrink-0"
+                                                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 hover:underline shrink-0"
                                                     >
                                                         Antworten
                                                     </a>
