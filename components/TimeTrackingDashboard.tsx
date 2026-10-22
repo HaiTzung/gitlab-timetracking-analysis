@@ -44,6 +44,7 @@ import IssueDashboard from "./IssueDashboard";
 import CategoryDashboard from "./CategoryDashboard";
 import DetailedActivity from "./DetailedActivity";
 import Leaderboard from "./Leaderboard";
+import PresentationMode from "./PresentationMode";
 
 // Import types
 import {
@@ -78,6 +79,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [customStart, setCustomStart] = useState<Date | null>(null);
   const [customEnd, setCustomEnd] = useState<Date | null>(null);
+  const [presentationMode, setPresentationMode] = useState(false);
   const totalFetchCount = TEAM_MEMBERS.length + 4; // +1 issues, +1 epics, +1 workitem statuses, +1 notes
 
   const rawInterval = Number(process.env.NEXT_PUBLIC_REFRESH_INTERVAL ?? 300);
@@ -477,6 +479,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       timelogs,
       onToggleAutoRefresh: () => setAutoRefresh((prev) => !prev),
       onRefresh: manualRefresh,
+      onPresentationMode: () => setPresentationMode(true),
       timeWindow,
       onSetTimeWindow: (w: TimeWindow) => setTimeWindow(w),
       customStart,
@@ -975,6 +978,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     timeWindow === "all" ? issues : issues.filter((i) => windowIssueIds.has(i.iid));
 
   return (
+    <>
     <div className="space-y-10">
       {/* Background refresh indicator */}
       {backgroundRefreshing && (
@@ -1049,6 +1053,35 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
       />
     </div>
+
+    {presentationMode && (
+      <PresentationMode
+        onClose={() => setPresentationMode(false)}
+        timelogs={timelogs}
+        windowTimelogs={windowTimelogs}
+        issues={issues}
+        epics={epics}
+        issueStatuses={issueStatuses}
+        heatmapData={heatmapData}
+        HEATMAP_COLORS={[...COLORS.HEATMAP]}
+        formatTime={formatTime}
+        projectMetrics={projectMetrics}
+        lineData={lineData}
+        barData={barData}
+        pieData={pieData}
+        COLORS={[...COLORS.PRIMARY]}
+        TEAM_COLORS={[...COLORS.TEAM]}
+        userLastLogged={userLastLogged}
+        teamMembers={[...TEAM_MEMBERS]}
+        selectedCategory={selectedCategory}
+        onCategorySelect={setSelectedCategory}
+        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
+        timeWindow={timeWindow}
+        customStart={customStart}
+        customEnd={customEnd}
+      />
+    )}
+    </>
   );
 };
 

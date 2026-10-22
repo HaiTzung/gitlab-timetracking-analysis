@@ -95,9 +95,18 @@ export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
                         <button
                             onClick={handleCsvExport}
                             disabled={ctx.timelogs.length === 0}
-                            className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            className="rounded-lg bg-gray-100 px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="CSV Export"
                         >
-                            ⬇ CSV Export
+                            ⬇
+                        </button>
+
+                        <button
+                            onClick={ctx.onPresentationMode}
+                            disabled={ctx.timelogs.length === 0}
+                            className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                            Präsentation
                         </button>
 
                         <button

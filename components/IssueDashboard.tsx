@@ -13,6 +13,7 @@ interface IssueDashboardProps {
     issues: Issue[];
     epics: Epic[];
     issueStatuses: Map<string, string>;
+    defaultExpanded?: boolean;
 }
 
 type StateFilter = 'opened' | 'closed' | 'all';
@@ -201,7 +202,7 @@ function EpicProgressBar({ dc }: { dc: Epic['descendantCounts'] }) {
 }
 
 function EpicNode({
-    epic, childEpics, epicIssues, allEpics, allIssues, depth = 0, issueStatuses,
+    epic, childEpics, epicIssues, allEpics, allIssues, depth = 0, issueStatuses, defaultExpanded = true,
 }: {
     epic: Epic;
     childEpics: Map<string | null, Epic[]>;
@@ -210,8 +211,9 @@ function EpicNode({
     allIssues: Issue[];
     depth?: number;
     issueStatuses: Map<string, string>;
+    defaultExpanded?: boolean;
 }) {
-    const [expanded, setExpanded] = useState(true);
+    const [expanded, setExpanded] = useState(defaultExpanded);
     const directIssues = epicIssues.get(epic.iid) ?? [];
     const children = childEpics.get(epic.iid) ?? [];
     const totalIssues = directIssues.length + children.reduce((sum, c) => sum + (epicIssues.get(c.iid)?.length ?? 0), 0);
@@ -270,7 +272,7 @@ function EpicNode({
                     {children.map(child => (
                         <EpicNode key={child.iid} epic={child} childEpics={childEpics}
                             epicIssues={epicIssues} allEpics={allEpics} allIssues={allIssues}
-                            depth={depth + 1} issueStatuses={issueStatuses} />
+                            depth={depth + 1} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />
                     ))}
                     {directIssues.map(issue => (
                         <IssueRow key={issue.iid} issue={issue} depth={depth + 1} issueStatuses={issueStatuses} />
@@ -281,8 +283,8 @@ function EpicNode({
     );
 }
 
-function OrphanGroup({ issues, issueStatuses }: { issues: Issue[]; issueStatuses: Map<string, string> }) {
-    const [expanded, setExpanded] = useState(true);
+function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues: Issue[]; issueStatuses: Map<string, string>; defaultExpanded?: boolean }) {
+    const [expanded, setExpanded] = useState(defaultExpanded);
     return (
         <div className="bg-gray-100 border-l-2 border-l-gray-300">
             <button onClick={() => setExpanded(e => !e)}
@@ -302,7 +304,7 @@ function OrphanGroup({ issues, issueStatuses }: { issues: Issue[]; issueStatuses
     );
 }
 
-const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses }) => {
+const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses, defaultExpanded = true }) => {
     const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
 
     // All issues sorted newest-first
@@ -438,9 +440,9 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                     {rootEpics.map(epic => (
                         <EpicNode key={epic.iid} epic={epic} childEpics={childEpics}
                             epicIssues={epicIssuesFiltered} allEpics={epics} allIssues={filteredIssues}
-                            depth={0} issueStatuses={issueStatuses} />
+                            depth={0} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />
                     ))}
-                    {orphanIssues.length > 0 && <OrphanGroup issues={orphanIssues} issueStatuses={issueStatuses} />}
+                    {orphanIssues.length > 0 && <OrphanGroup issues={orphanIssues} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />}
                 </div>
             )}
 
