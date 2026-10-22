@@ -225,7 +225,7 @@ function EpicNode({
     const [expanded, setExpanded] = useState(defaultExpanded);
     const directIssues = epicIssues.get(epic.iid) ?? [];
     const children = childEpics.get(epic.iid) ?? [];
-    const totalIssues = directIssues.length + children.reduce((sum, c) => sum + (epicIssues.get(c.iid)?.length ?? 0), 0);
+    const totalIssues = epic.descendantCounts?.openedIssues ?? 0;
     const isClosed = epic.state === 'closed';
 
     const epicEstH = directIssues.reduce((s, i) => s + (i.timeEstimate || 0), 0) / 3600;
@@ -272,7 +272,7 @@ function EpicNode({
 
                 <EpicProgressBar dc={epic.descendantCounts} />
                 <span className="text-xs text-gray-400 flex-shrink-0 hidden sm:block">
-                    {totalIssues} Issue{totalIssues !== 1 ? 's' : ''}
+                    {totalIssues} offen{totalIssues !== 1 ? '' : ''}
                 </span>
             </button>
 
