@@ -507,8 +507,10 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
           ? subDays(now, 14)
           : timeWindow === "month"
             ? startOfMonth(now)
-            : customStart;
-    const to = timeWindow === "custom" && customEnd ? customEnd : now;
+            : (timeWindow === "custom" || timeWindow === "kw")
+              ? customStart
+              : null;
+    const to = (timeWindow === "custom" || timeWindow === "kw") && customEnd ? customEnd : now;
     return logs.filter((l) => {
       const d = new Date(l.spentAt);
       return (!from || d >= from) && d <= to;

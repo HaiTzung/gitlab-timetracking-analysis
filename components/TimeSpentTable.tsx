@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { startOfWeek, endOfWeek, addWeeks, format, parseISO, differenceInWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Timelog } from '@/types/dashboard';
 import { CATEGORIES, COLORS } from '@/config/dashboardConfig';
+import { useDashboardContext } from '@/context/DashboardContext';
 
 interface TimeSpentTableProps {
     timelogs: Timelog[];
@@ -127,6 +128,31 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
     const [weekOffset, setWeekOffset] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const [copied, setCopied] = useState(false);
+    const ctx = useDashboardContext();
+
+    // Earliest week offset allowed (clamped to project start)
+    const minOffset = useMemo(() => {
+        if (!timelogs.length) return -52;
+        const earliest = timelogs.reduce(
+            (min, t) => (t.spentAt < min ? t.spentAt : min),
+            timelogs[0].spentAt,
+        );
+        const earliestMonday = startOfWeek(parseISO(earliest), { weekStartsOn: 1 });
+        const currentMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
+        return differenceInWeeks(earliestMonday, currentMonday);
+    }, [timelogs]);
+
+    // Sync from sidebar KW selection
+    useEffect(() => {
+        if (ctx?.timeWindow === 'kw' && ctx.customStart) {
+            const targetMonday = startOfWeek(ctx.customStart, { weekStartsOn: 1 });
+            const currentMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
+            setWeekOffset(differenceInWeeks(targetMonday, currentMonday));
+            setShowAll(false);
+        } else if (ctx?.timeWindow === 'all') {
+            setShowAll(true);
+        }
+    }, [ctx?.timeWindow, ctx?.customStart]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -225,7 +251,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                 <div className="flex items-center gap-1">
                     <button
                         onClick={() => { setWeekOffset(w => w - 1); setShowAll(false); }}
-                        disabled={showAll}
+                        disabled={showAll || weekOffset <= minOffset}
                         className="rounded-md px-2 py-1 text-sm border border-gray-200 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         aria-label="Vorherige Woche"
                     >

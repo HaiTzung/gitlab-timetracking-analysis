@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useCallback } from 'react';
 
-export type TimeWindow = 'all' | '7d' | '14d' | 'month' | 'custom';
+export type TimeWindow = 'all' | '7d' | '14d' | 'month' | 'custom' | 'kw';
 
 export interface DashboardToolbarState {
     lastRefreshed: Date | null;
