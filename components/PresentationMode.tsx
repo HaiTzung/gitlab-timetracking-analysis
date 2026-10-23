@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Issue, Epic, Timelog, ProjectMetrics } from '@/types/dashboard';
 import { TimeWindow } from '@/context/DashboardContext';
-import { eachWeekOfInterval, startOfWeek, endOfWeek, parseISO, format } from 'date-fns';
+import { eachWeekOfInterval, startOfWeek, endOfWeek, parseISO, format, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 import DetailedActivity from './DetailedActivity';
 import IssueDashboard from './IssueDashboard';
@@ -47,6 +47,7 @@ export interface PresentationModeProps {
 export default function PresentationMode(props: PresentationModeProps) {
     const { onClose } = props;
     const [slide, setSlide] = useState(0);
+    const [tuOffset, setTuOffset] = useState(true);
     const contentRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const total = SLIDES.length;
@@ -58,17 +59,20 @@ export default function PresentationMode(props: PresentationModeProps) {
         const logs = props.timelogs;
         if (!logs.length) return [];
         const earliest = logs.reduce((min, t) => (t.spentAt < min ? t.spentAt : min), logs[0].spentAt);
-        const start = startOfWeek(parseISO(earliest), { weekStartsOn: 1 });
-        const end = startOfWeek(new Date(), { weekStartsOn: 1 });
-        const weeks = eachWeekOfInterval({ start, end }, { weekStartsOn: 1 });
-        const todayStart = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10);
-        return weeks.map((weekStart) => {
-            const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-            const isCurrent = weekStart.toISOString().slice(0, 10) === todayStart;
-            const base = `KW ${format(weekStart, 'II/yy', { locale: de })} (${format(weekStart, 'dd.MM', { locale: de })}–${format(weekEnd, 'dd.MM', { locale: de })})`;
-            return { label: isCurrent ? `${base} · diese Woche` : base, weekStart, weekEnd };
+        const monStart = startOfWeek(parseISO(earliest), { weekStartsOn: 1 });
+        const monEnd   = startOfWeek(new Date(), { weekStartsOn: 1 });
+        const weeks = eachWeekOfInterval({ start: monStart, end: monEnd }, { weekStartsOn: 1 });
+        const todayMonAnchor = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10);
+        return weeks.map((mon) => {
+            const wStart = tuOffset ? addDays(mon, 1) : mon;
+            const wEnd   = tuOffset
+                ? new Date(new Date(addDays(mon, 7)).setHours(23, 59, 59, 0))
+                : endOfWeek(mon, { weekStartsOn: 1 });
+            const isCurrent = mon.toISOString().slice(0, 10) === todayMonAnchor;
+            const base = `KW ${format(mon, 'II/yy', { locale: de })} (${format(wStart, 'dd.MM', { locale: de })}–${format(wEnd, 'dd.MM', { locale: de })})`;
+            return { label: isCurrent ? `${base} · diese Woche` : base, weekStart: wStart, weekEnd: wEnd };
         }).reverse();
-    }, [props.timelogs]);
+    }, [props.timelogs, tuOffset]);
 
     const selectedKwIndex = useMemo(() => {
         if (props.timeWindow !== 'kw' || !props.customStart) return '';
@@ -130,21 +134,33 @@ export default function PresentationMode(props: PresentationModeProps) {
             <div className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 shrink-0">{SLIDES[slide].label}</h2>
 
-                {/* KW picker */}
-                <div className="relative mx-4 flex-1 max-w-xs">
-                    <select
-                        value={selectedKwIndex}
-                        onChange={handleKwChange}
-                        className="w-full appearance-none border border-gray-300 dark:border-gray-600 rounded-md pl-2 pr-7 py-1.5 text-xs text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Alle Wochen</option>
-                        {kwOptions.map((opt, idx) => (
-                            <option key={idx} value={idx}>{opt.label}</option>
-                        ))}
-                    </select>
-                    <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M2 4l4 4 4-4" />
-                    </svg>
+                {/* KW picker + offset toggle */}
+                <div className="flex items-center gap-2 mx-4 flex-1 max-w-sm">
+                    <div className="relative flex-1">
+                        <select
+                            value={selectedKwIndex}
+                            onChange={handleKwChange}
+                            className="w-full appearance-none border border-gray-300 dark:border-gray-600 rounded-md pl-2 pr-7 py-1.5 text-xs text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">Alle Wochen</option>
+                            {kwOptions.map((opt, idx) => (
+                                <option key={idx} value={idx}>{opt.label}</option>
+                            ))}
+                        </select>
+                        <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 4l4 4 4-4" />
+                        </svg>
+                    </div>
+                    <div className="flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-600 shrink-0">
+                        <button
+                            onClick={() => { setTuOffset(true); props.onSetTimeWindow?.('all'); props.onSetCustomDates?.(null, null); }}
+                            className={`px-2 py-1.5 text-xs font-medium transition-colors ${tuOffset ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        >Di–Mo</button>
+                        <button
+                            onClick={() => { setTuOffset(false); props.onSetTimeWindow?.('all'); props.onSetCustomDates?.(null, null); }}
+                            className={`px-2 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-600 ${!tuOffset ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        >Mo–So</button>
+                    </div>
                 </div>
 
                 <button

@@ -43,6 +43,7 @@ export default function Sidebar({ open }: SidebarProps) {
   const [mode, setMode] = useState<"kw" | "custom">("kw");
   const [draftStart, setDraftStart] = useState("");
   const [draftEnd, setDraftEnd] = useState("");
+  const [tuOffset, setTuOffset] = useState(true);
   const navRef = useRef<HTMLElement>(null);
   const ctx = useDashboardContext();
   const activeWindow = ctx?.timeWindow ?? "all";
@@ -65,19 +66,22 @@ export default function Sidebar({ open }: SidebarProps) {
       (min, t) => (t.spentAt < min ? t.spentAt : min),
       logs[0].spentAt,
     );
-    const start = startOfWeek(parseISO(earliest), { weekStartsOn: 1 });
-    const end = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const weeks = eachWeekOfInterval({ start, end }, { weekStartsOn: 1 });
-    const todayStart = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10);
+    const monStart = startOfWeek(parseISO(earliest), { weekStartsOn: 1 });
+    const monEnd   = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const weeks = eachWeekOfInterval({ start: monStart, end: monEnd }, { weekStartsOn: 1 });
+    const todayMonAnchor = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10);
     return weeks
-      .map((weekStart) => {
-        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-        const isCurrent = weekStart.toISOString().slice(0, 10) === todayStart;
-        const base = `KW ${format(weekStart, "II/yy", { locale: de })} (${format(weekStart, "dd.MM", { locale: de })}–${format(weekEnd, "dd.MM", { locale: de })})`;
-        return { label: isCurrent ? `${base} · diese Woche` : base, weekStart, weekEnd, isCurrent };
+      .map((mon) => {
+        const wStart = tuOffset ? addDays(mon, 1) : mon;
+        const wEnd   = tuOffset
+          ? new Date(new Date(addDays(mon, 7)).setHours(23, 59, 59, 0))
+          : endOfWeek(mon, { weekStartsOn: 1 });
+        const isCurrent = mon.toISOString().slice(0, 10) === todayMonAnchor;
+        const base = `KW ${format(mon, "II/yy", { locale: de })} (${format(wStart, "dd.MM", { locale: de })}–${format(wEnd, "dd.MM", { locale: de })})`;
+        return { label: isCurrent ? `${base} · diese Woche` : base, weekStart: wStart, weekEnd: wEnd, isCurrent };
       })
-      .reverse(); // newest first
-  }, [ctx?.timelogs]);
+      .reverse();
+  }, [ctx?.timelogs, tuOffset]);
 
   // Detect active scroll section
   useEffect(() => {
@@ -267,6 +271,7 @@ export default function Sidebar({ open }: SidebarProps) {
 
           {/* KW picker */}
           {mode === "kw" && (
+            <>
             <div className="relative">
             <select
               value={selectedKwIndex}
@@ -284,6 +289,19 @@ export default function Sidebar({ open }: SidebarProps) {
               <path d="M2 4l4 4 4-4" />
             </svg>
             </div>
+
+            {/* Week offset toggle */}
+            <div className="flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-600 mt-2">
+              <button
+                onClick={() => { setTuOffset(true); ctx?.onSetTimeWindow("all"); ctx?.onSetCustomDates(null, null); }}
+                className={`flex-1 py-1 text-xs font-medium transition-colors ${tuOffset ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+              >Di–Mo</button>
+              <button
+                onClick={() => { setTuOffset(false); ctx?.onSetTimeWindow("all"); ctx?.onSetCustomDates(null, null); }}
+                className={`flex-1 py-1 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-600 ${!tuOffset ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+              >Mo–So</button>
+            </div>
+            </>
           )}
 
           {/* Custom date range picker */}
