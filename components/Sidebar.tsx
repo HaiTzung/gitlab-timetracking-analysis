@@ -31,7 +31,8 @@ function toInputDate(d: Date | null): string {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 interface SidebarProps {
@@ -43,10 +44,11 @@ export default function Sidebar({ open }: SidebarProps) {
   const [mode, setMode] = useState<"kw" | "custom">("kw");
   const [draftStart, setDraftStart] = useState("");
   const [draftEnd, setDraftEnd] = useState("");
-  const [tuOffset, setTuOffset] = useState(true);
   const navRef = useRef<HTMLElement>(null);
   const ctx = useDashboardContext();
   const activeWindow = ctx?.timeWindow ?? "all";
+  const tuOffset = ctx?.tuOffset ?? true;
+
   const { theme, resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -181,7 +183,7 @@ export default function Sidebar({ open }: SidebarProps) {
   };
 
   const handleCustomApply = () => {
-    const start = draftStart ? new Date(draftStart) : null;
+    const start = draftStart ? new Date(draftStart + "T00:00:00") : null;
     const end = draftEnd ? new Date(draftEnd + "T23:59:59") : null;
     ctx?.onSetCustomDates(start, end);
     ctx?.onSetTimeWindow("custom");
@@ -293,11 +295,11 @@ export default function Sidebar({ open }: SidebarProps) {
             {/* Week offset toggle */}
             <div className="flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-600 mt-2">
               <button
-                onClick={() => { setTuOffset(true); ctx?.onSetTimeWindow("all"); ctx?.onSetCustomDates(null, null); }}
+                onClick={() => { ctx?.onSetTuOffset?.(true); ctx?.onSetTimeWindow("all"); ctx?.onSetCustomDates(null, null); }}
                 className={`flex-1 py-1 text-xs font-medium transition-colors ${tuOffset ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
               >Di–Mo</button>
               <button
-                onClick={() => { setTuOffset(false); ctx?.onSetTimeWindow("all"); ctx?.onSetCustomDates(null, null); }}
+                onClick={() => { ctx?.onSetTuOffset?.(false); ctx?.onSetTimeWindow("all"); ctx?.onSetCustomDates(null, null); }}
                 className={`flex-1 py-1 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-600 ${!tuOffset ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
               >Mo–So</button>
             </div>
@@ -314,15 +316,17 @@ export default function Sidebar({ open }: SidebarProps) {
                 max={todayStr()}
                 onChange={(e) => handleStartChange(e.target.value)}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 text-xs text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                suppressHydrationWarning
               />
               <label className="text-xs text-gray-500 dark:text-gray-400">Bis</label>
               <input
                 type="date"
                 value={draftEnd}
-                min={draftStart || undefined}
+                min={draftStart}
                 max={todayStr()}
                 onChange={(e) => handleEndChange(e.target.value)}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 text-xs text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                suppressHydrationWarning
               />
               <div className="flex gap-1.5 mt-0.5">
                 <button

@@ -79,6 +79,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [customStart, setCustomStart] = useState<Date | null>(null);
   const [customEnd, setCustomEnd] = useState<Date | null>(null);
+  const [tuOffset, setTuOffset] = useState(true);
   const [presentationMode, setPresentationMode] = useState(false);
   const totalFetchCount = TEAM_MEMBERS.length + 4; // +1 issues, +1 epics, +1 workitem statuses, +1 notes
 
@@ -489,6 +490,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         setCustomStart(start);
         setCustomEnd(end);
       },
+      tuOffset,
+      onSetTuOffset: (v) => setTuOffset(v),
     });
   }, [
     lastRefreshed,
@@ -498,6 +501,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     timeWindow,
     customStart,
     customEnd,
+    tuOffset,
   ]);
 
   const filterByWindow = (logs: Timelog[]): Timelog[] => {
@@ -706,7 +710,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     // Calculate category distribution only for sprints with data
     const categoryDistribution = Object.entries(totalCategoryHours).map(([category, hours]) => ({
       category,
-      hours: hours / sprintData.length, // Average per sprint with data
+      hours: sprintData.length > 0 ? hours / sprintData.length : 0, // Average per sprint with data
     }));
 
     // === Average Team Members per Issue ===
@@ -892,7 +896,9 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         sprintData,
         totalSprints: sprintData.length,
         averageVelocity:
-          sprintData.reduce((sum, sprint) => sum + sprint.totalHours, 0) / sprintData.length,
+          sprintData.length > 0
+            ? sprintData.reduce((sum, sprint) => sum + sprint.totalHours, 0) / sprintData.length
+            : 0,
         categoryDistribution,
       },
       averageTeamMembersData,

@@ -28,6 +28,8 @@ export interface DashboardToolbarState {
     customStart: Date | null;
     customEnd: Date | null;
     onSetCustomDates: (start: Date | null, end: Date | null) => void;
+    tuOffset: boolean;
+    onSetTuOffset: (v: boolean) => void;
 }
 
 interface DashboardContextValue {

@@ -53,7 +53,7 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
                 <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
                     <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">{KPI_LABELS.WEEKLY_PERFORMANCE}</h4>
                     <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">
-                        {projectMetrics.averageVelocity.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h
+                        {(projectMetrics.averageVelocity || 0).toFixed(CHART_CONFIG.DECIMAL_PLACES)}h
                     </p>
                     <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
                         {projectMetrics.totalSprints} {KPI_LABELS.ACTIVE_WEEKS}
@@ -66,6 +66,7 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
                     {(() => {
                         const mainCategory = [...projectMetrics.categoryDistribution]
                             .sort((a, b) => b.hours - a.hours)[0];
+                        if (!mainCategory) return <p className="text-sm text-green-600 dark:text-green-400">Keine Daten</p>;
                         return (
                             <>
                                 <p className="text-2xl font-bold text-green-900 dark:text-green-200">
@@ -106,6 +107,7 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
                     {(() => {
                         const mostProductiveWeek = [...projectMetrics.sprintData]
                             .sort((a, b) => b.totalHours - a.totalHours)[0];
+                        if (!mostProductiveWeek) return <p className="text-sm text-orange-600 dark:text-orange-400">Keine Daten</p>;
                         return (
                             <>
                                 <p className="text-2xl font-bold text-orange-900 dark:text-orange-200">

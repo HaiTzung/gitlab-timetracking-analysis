@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { startOfWeek, endOfWeek, addWeeks, format, parseISO, differenceInWeeks } from 'date-fns';
+import { startOfWeek, endOfWeek, addWeeks, addDays, format, parseISO, differenceInWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Timelog } from '@/types/dashboard';
 import { CATEGORIES, COLORS } from '@/config/dashboardConfig';
@@ -128,7 +128,11 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
     const [weekOffset, setWeekOffset] = useState(0);
     const [showAll, setShowAll] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const ctx = useDashboardContext();
+    const tuOffset = ctx?.tuOffset ?? true;
+
+    useEffect(() => { setMounted(true); }, []);
 
     // Earliest week offset allowed (clamped to project start)
     const minOffset = useMemo(() => {
@@ -142,17 +146,38 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
         return differenceInWeeks(earliestMonday, currentMonday);
     }, [timelogs]);
 
-    // Sync from sidebar KW selection
+    // Full two-way sync with sidebar context
     useEffect(() => {
         if (ctx?.timeWindow === 'kw' && ctx.customStart) {
+            // Derive weekOffset from the Monday anchor of customStart
             const targetMonday = startOfWeek(ctx.customStart, { weekStartsOn: 1 });
             const currentMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
             setWeekOffset(differenceInWeeks(targetMonday, currentMonday));
             setShowAll(false);
+        } else if (ctx?.timeWindow === 'custom') {
+            // Custom range: table shows full dataset, actual filtering handled by parent
+            setShowAll(true);
         } else if (ctx?.timeWindow === 'all') {
             setShowAll(true);
         }
     }, [ctx?.timeWindow, ctx?.customStart]);
+
+    // Push local week changes back to context
+    const pushToContext = (offset: number, all: boolean) => {
+        if (!ctx) return;
+        if (all) {
+            ctx.onSetTimeWindow('all');
+            ctx.onSetCustomDates(null, null);
+        } else {
+            const mon = startOfWeek(addWeeks(new Date(), offset), { weekStartsOn: 1 });
+            const wStart = tuOffset ? addDays(mon, 1) : mon;
+            const wEnd   = tuOffset
+                ? new Date(new Date(addDays(mon, 7)).setHours(23, 59, 59, 0))
+                : endOfWeek(mon, { weekStartsOn: 1 });
+            ctx.onSetTimeWindow('kw');
+            ctx.onSetCustomDates(wStart, wEnd);
+        }
+    };
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -193,32 +218,51 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
         });
     }, []);
 
-    const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+    // Compute week bounds respecting tuOffset
+    const mon = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
+    const weekStart = tuOffset ? addDays(mon, 1) : mon;
+    const weekEnd   = tuOffset
+        ? new Date(new Date(addDays(mon, 7)).setHours(23, 59, 59, 0))
+        : endOfWeek(mon, { weekStartsOn: 1 });
 
-    const filtered = showAll
-        ? timelogs
-        : timelogs.filter(log => {
+    const isCustomRange = ctx?.timeWindow === 'custom' && !!(ctx.customStart || ctx.customEnd);
+    const filtered = isCustomRange
+        ? timelogs.filter(log => {
             const d = parseISO(log.spentAt);
-            return d >= weekStart && d <= weekEnd;
-        });
+            return (!ctx.customStart || d >= ctx.customStart) && (!ctx.customEnd || d <= ctx.customEnd);
+        })
+        : showAll
+            ? timelogs
+            : timelogs.filter(log => {
+                const d = parseISO(log.spentAt);
+                return d >= weekStart && d <= weekEnd;
+            });
 
     const allUsers = [...new Set(timelogs.map(t => t.user.name))].sort();
 
     const { users, categories, data, rowTotals, colTotals, grandTotal } = buildMatrix(filtered, allUsers);
 
-    const kwLabel = format(weekStart, "'KW' II", { locale: de });
-    const rangeLabel = showAll
+    const kwLabel = format(mon, "'KW' II", { locale: de });
+    const rangeLabel = isCustomRange
         ? (() => {
-            if (!timelogs.length) return 'Keine Daten';
-            const dates = timelogs.map(t => parseISO(t.spentAt));
-            const earliest = dates.reduce((a, b) => a < b ? a : b);
-            const latest = dates.reduce((a, b) => a > b ? a : b);
-            return `${format(earliest, 'dd.MM.yyyy')} – ${format(latest, 'dd.MM.yyyy')}`;
+            const s = ctx?.customStart;
+            const e = ctx?.customEnd;
+            if (!s && !e) return 'Benutzerdefiniert';
+            if (s && e) return `${format(s, 'dd.MM.yyyy')} – ${format(e, 'dd.MM.yyyy')}`;
+            if (s) return `ab ${format(s, 'dd.MM.yyyy')}`;
+            return `bis ${format(e!, 'dd.MM.yyyy')}`;
         })()
-        : `${format(weekStart, 'EEE, dd.MM.', { locale: de })} – ${format(weekEnd, 'EEE, dd.MM.yyyy', { locale: de })}`;
+        : showAll
+            ? (() => {
+                if (!timelogs.length) return 'Keine Daten';
+                const dates = timelogs.map(t => parseISO(t.spentAt));
+                const earliest = dates.reduce((a, b) => a < b ? a : b);
+                const latest = dates.reduce((a, b) => a > b ? a : b);
+                return `${format(earliest, 'dd.MM.yyyy')} – ${format(latest, 'dd.MM.yyyy')}`;
+            })()
+            : `${format(weekStart, 'EEE, dd.MM.', { locale: de })} – ${format(weekEnd, 'EEE, dd.MM.yyyy', { locale: de })}`;
 
-    const timeLabel = showAll ? 'Gesamter Zeitraum' : kwLabel;
+    const timeLabel = isCustomRange ? 'Benutzerdefiniert' : showAll ? 'Gesamter Zeitraum' : kwLabel;
 
     const handleExportMarkdown = () => {
         if (users.length === 0) return;
@@ -250,8 +294,8 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
             <div className="flex flex-wrap items-center gap-2 mb-4">
                 <div className="flex items-center gap-1">
                     <button
-                        onClick={() => { setWeekOffset(w => w - 1); setShowAll(false); }}
-                        disabled={showAll || weekOffset <= minOffset}
+                        onClick={() => { const next = weekOffset - 1; setWeekOffset(next); setShowAll(false); pushToContext(next, false); }}
+                        disabled={isCustomRange || showAll || weekOffset <= minOffset}
                         className="rounded-md px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         aria-label="Vorherige Woche"
                     >
@@ -259,17 +303,21 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                     </button>
 
                     <div className="min-w-[220px] text-center px-3 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                        {showAll ? (
+                        {!mounted ? (
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">&nbsp;</span>
+                        ) : isCustomRange ? (
+                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Benutzerdefiniert</span>
+                        ) : showAll ? (
                             <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Gesamter Zeitraum</span>
                         ) : (
                             <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{kwLabel}</span>
                         )}
-                        <span className="block text-xs text-gray-400 dark:text-gray-500">{rangeLabel}</span>
+                        <span className="block text-xs text-gray-400 dark:text-gray-500">{mounted ? rangeLabel : ''}</span>
                     </div>
 
                     <button
-                        onClick={() => { setWeekOffset(w => w + 1); setShowAll(false); }}
-                        disabled={weekOffset >= 0 || showAll}
+                        onClick={() => { const next = weekOffset + 1; setWeekOffset(next); setShowAll(false); pushToContext(next, false); }}
+                        disabled={isCustomRange || weekOffset >= 0 || showAll}
                         className="rounded-md px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                         aria-label="Nächste Woche"
                     >
@@ -278,9 +326,9 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                 </div>
 
                 <button
-                    onClick={() => { setWeekOffset(0); setShowAll(false); }}
+                    onClick={() => { setWeekOffset(0); setShowAll(false); pushToContext(0, false); }}
                     className={`rounded-md px-3 py-1 text-xs font-medium border transition-colors ${
-                        !showAll && weekOffset === 0
+                        !isCustomRange && !showAll && weekOffset === 0
                             ? 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
                             : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
@@ -289,9 +337,9 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
                 </button>
 
                 <button
-                    onClick={() => setShowAll(true)}
+                    onClick={() => { setShowAll(true); pushToContext(weekOffset, true); }}
                     className={`rounded-md px-3 py-1 text-xs font-medium border transition-colors ${
-                        showAll
+                        !isCustomRange && showAll
                             ? 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
                             : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
