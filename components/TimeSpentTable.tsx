@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { startOfWeek, endOfWeek, addWeeks, addDays, format, parseISO, differenceInWeeks } from 'date-fns';
+import React, { useState } from 'react';
+import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Timelog } from '@/types/dashboard';
 import { CATEGORIES, COLORS } from '@/config/dashboardConfig';
@@ -27,7 +27,6 @@ function buildMatrix(logs: Timelog[], allUsers: string[]) {
         row.set(cat, (row.get(cat) ?? 0) + hours);
     });
 
-    // Always include every known user, even those with no logs in the current period
     const users = [...new Set([...allUsers, ...data.keys()])].sort();
     const allCats = [...Object.values(CATEGORIES).map(c => c.replace('category::', '')), 'Sonstige'];
     const categories = allCats.filter(cat => [...data.values()].some(row => row.has(cat)));
@@ -54,14 +53,6 @@ function getCatColor(strippedCat: string): string {
     return COLORS.CATEGORY[fullKey] ?? '#94a3b8';
 }
 
-function buildShareUrl(weekOffset: number, showAll: boolean): string {
-    if (typeof window === 'undefined') return '';
-    const base = window.location.origin + window.location.pathname;
-    if (showAll) return `${base}?week=all#zeitaufwand-tabelle`;
-    const monday = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
-    return `${base}?week=${format(monday, 'yyyy-MM-dd')}#zeitaufwand-tabelle`;
-}
-
 function buildMarkdown(
     users: string[],
     categories: string[],
@@ -71,13 +62,11 @@ function buildMarkdown(
     grandTotal: number,
     timeLabel: string,
     rangeLabel: string,
-    shareUrl: string,
 ): string {
     const col = (s: string, w: number) => s.padEnd(w);
     const colR = (s: string, w: number) => s.padStart(w);
 
-    // Column widths
-    const nameW = Math.max(6, ...users.map(u => u.length), 5 /* "Total" */);
+    const nameW = Math.max(6, ...users.map(u => u.length), 5);
     const catWs = categories.map(cat =>
         Math.max(cat.length, ...users.map(u => fmt(data.get(u)?.get(cat) ?? 0).length), fmt(colTotals.get(cat) ?? 0).length)
     );
@@ -112,7 +101,6 @@ function buildMarkdown(
         ``,
         `**Zeitraum:** ${timeLabel} (${rangeLabel})`,
         `**Exportiert:** ${format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de })}`,
-        ...(shareUrl ? [`**Link:** ${shareUrl}`] : []),
         ``,
         header,
         sep(),
@@ -125,124 +113,21 @@ function buildMarkdown(
 }
 
 export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
-    const [weekOffset, setWeekOffset] = useState(0);
-    const [showAll, setShowAll] = useState(false);
     const [copied, setCopied] = useState(false);
-    const [mounted, setMounted] = useState(false);
     const ctx = useDashboardContext();
-    const tuOffset = ctx?.tuOffset ?? true;
-
-    useEffect(() => { setMounted(true); }, []);
-
-    // Earliest week offset allowed (clamped to project start)
-    const minOffset = useMemo(() => {
-        if (!timelogs.length) return -52;
-        const earliest = timelogs.reduce(
-            (min, t) => (t.spentAt < min ? t.spentAt : min),
-            timelogs[0].spentAt,
-        );
-        const earliestMonday = startOfWeek(parseISO(earliest), { weekStartsOn: 1 });
-        const currentMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
-        return differenceInWeeks(earliestMonday, currentMonday);
-    }, [timelogs]);
-
-    // Full two-way sync with sidebar context
-    useEffect(() => {
-        if (ctx?.timeWindow === 'kw' && ctx.customStart) {
-            // Derive weekOffset from the Monday anchor of customStart
-            const targetMonday = startOfWeek(ctx.customStart, { weekStartsOn: 1 });
-            const currentMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
-            setWeekOffset(differenceInWeeks(targetMonday, currentMonday));
-            setShowAll(false);
-        } else if (ctx?.timeWindow === 'custom') {
-            // Custom range: table shows full dataset, actual filtering handled by parent
-            setShowAll(true);
-        } else if (ctx?.timeWindow === 'all') {
-            setShowAll(true);
-        }
-    }, [ctx?.timeWindow, ctx?.customStart]);
-
-    // Push local week changes back to context
-    const pushToContext = (offset: number, all: boolean) => {
-        if (!ctx) return;
-        if (all) {
-            ctx.onSetTimeWindow('all');
-            ctx.onSetCustomDates(null, null);
-        } else {
-            const mon = startOfWeek(addWeeks(new Date(), offset), { weekStartsOn: 1 });
-            const wStart = tuOffset ? addDays(mon, 1) : mon;
-            const wEnd   = tuOffset
-                ? new Date(new Date(addDays(mon, 7)).setHours(23, 59, 59, 0))
-                : endOfWeek(mon, { weekStartsOn: 1 });
-            ctx.onSetTimeWindow('kw');
-            ctx.onSetCustomDates(wStart, wEnd);
-        }
-    };
-
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const weekParam = params.get('week');
-        if (!weekParam) return;
-        if (weekParam === 'all') {
-            setShowAll(true);
-            requestAnimationFrame(() => {
-                (() => {
-                const target = document.getElementById('zeitaufwand-tabelle');
-                const scroller = document.getElementById('main-scroll');
-                if (target && scroller) {
-                  const scrollerTop = scroller.getBoundingClientRect().top;
-                  const targetTop = target.getBoundingClientRect().top;
-                  scroller.scrollTop += targetTop - scrollerTop - 16;
-                }
-              })();
-            });
-            return;
-        }
-        const targetDate = parseISO(weekParam);
-        if (isNaN(targetDate.getTime())) return;
-        const targetMonday = startOfWeek(targetDate, { weekStartsOn: 1 });
-        const currentMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
-        const diff = differenceInWeeks(targetMonday, currentMonday);
-        setWeekOffset(diff);
-        setShowAll(false);
-        requestAnimationFrame(() => {
-            (() => {
-                const target = document.getElementById('zeitaufwand-tabelle');
-                const scroller = document.getElementById('main-scroll');
-                if (target && scroller) {
-                  const scrollerTop = scroller.getBoundingClientRect().top;
-                  const targetTop = target.getBoundingClientRect().top;
-                  scroller.scrollTop += targetTop - scrollerTop - 16;
-                }
-              })();
-        });
-    }, []);
-
-    // Compute week bounds respecting tuOffset
-    const mon = startOfWeek(addWeeks(new Date(), weekOffset), { weekStartsOn: 1 });
-    const weekStart = tuOffset ? addDays(mon, 1) : mon;
-    const weekEnd   = tuOffset
-        ? new Date(new Date(addDays(mon, 7)).setHours(23, 59, 59, 0))
-        : endOfWeek(mon, { weekStartsOn: 1 });
 
     const isCustomRange = ctx?.timeWindow === 'custom' && !!(ctx.customStart || ctx.customEnd);
+
     const filtered = isCustomRange
         ? timelogs.filter(log => {
             const d = parseISO(log.spentAt);
             return (!ctx.customStart || d >= ctx.customStart) && (!ctx.customEnd || d <= ctx.customEnd);
         })
-        : showAll
-            ? timelogs
-            : timelogs.filter(log => {
-                const d = parseISO(log.spentAt);
-                return d >= weekStart && d <= weekEnd;
-            });
+        : timelogs;
 
     const allUsers = [...new Set(timelogs.map(t => t.user.name))].sort();
-
     const { users, categories, data, rowTotals, colTotals, grandTotal } = buildMatrix(filtered, allUsers);
 
-    const kwLabel = format(mon, "'KW' II", { locale: de });
     const rangeLabel = isCustomRange
         ? (() => {
             const s = ctx?.customStart;
@@ -252,33 +137,31 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
             if (s) return `ab ${format(s, 'dd.MM.yyyy')}`;
             return `bis ${format(e!, 'dd.MM.yyyy')}`;
         })()
-        : showAll
-            ? (() => {
-                if (!timelogs.length) return 'Keine Daten';
-                const dates = timelogs.map(t => parseISO(t.spentAt));
-                const earliest = dates.reduce((a, b) => a < b ? a : b);
-                const latest = dates.reduce((a, b) => a > b ? a : b);
-                return `${format(earliest, 'dd.MM.yyyy')} – ${format(latest, 'dd.MM.yyyy')}`;
-            })()
-            : `${format(weekStart, 'EEE, dd.MM.', { locale: de })} – ${format(weekEnd, 'EEE, dd.MM.yyyy', { locale: de })}`;
+        : (() => {
+            if (!timelogs.length) return 'Keine Daten';
+            const dates = timelogs.map(t => parseISO(t.spentAt));
+            const earliest = dates.reduce((a, b) => a < b ? a : b);
+            const latest = dates.reduce((a, b) => a > b ? a : b);
+            return `${format(earliest, 'dd.MM.yyyy')} – ${format(latest, 'dd.MM.yyyy')}`;
+        })();
 
-    const timeLabel = isCustomRange ? 'Benutzerdefiniert' : showAll ? 'Gesamter Zeitraum' : kwLabel;
+    const timeLabel = isCustomRange ? 'Benutzerdefiniert' : 'Gesamter Zeitraum';
 
     const handleExportMarkdown = () => {
         if (users.length === 0) return;
-        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel, buildShareUrl(weekOffset, showAll));
+        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel);
         const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `zeitaufwand-${showAll ? 'gesamt' : kwLabel.replace(' ', '-')}.md`;
+        a.download = `zeitaufwand-${isCustomRange ? 'benutzerdefiniert' : 'gesamt'}.md`;
         a.click();
         URL.revokeObjectURL(url);
     };
 
     const handleCopyMarkdown = () => {
         if (users.length === 0) return;
-        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel, buildShareUrl(weekOffset, showAll));
+        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel);
         navigator.clipboard.writeText(md).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
@@ -287,86 +170,27 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
 
     return (
         <section id="zeitaufwand-tabelle">
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1">Zeitaufwand pro Person & Kategorie</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Gebuchte Stunden nach Teammitglied und Kategorie</p>
-
-            {/* Week picker */}
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-                <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between mb-1">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Zeitaufwand pro Person & Kategorie</h3>
+                <div className="flex items-center gap-2">
                     <button
-                        onClick={() => { const next = weekOffset - 1; setWeekOffset(next); setShowAll(false); pushToContext(next, false); }}
-                        disabled={isCustomRange || showAll || weekOffset <= minOffset}
-                        className="rounded-md px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        aria-label="Vorherige Woche"
+                        onClick={handleCopyMarkdown}
+                        disabled={users.length === 0}
+                        className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
-                        ←
+                        {copied ? '✓ Kopiert' : '⎘ Kopieren'}
                     </button>
-
-                    <div className="min-w-[220px] text-center px-3 py-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                        {!mounted ? (
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">&nbsp;</span>
-                        ) : isCustomRange ? (
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Benutzerdefiniert</span>
-                        ) : showAll ? (
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Gesamter Zeitraum</span>
-                        ) : (
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{kwLabel}</span>
-                        )}
-                        <span className="block text-xs text-gray-400 dark:text-gray-500">{mounted ? rangeLabel : ''}</span>
-                    </div>
-
                     <button
-                        onClick={() => { const next = weekOffset + 1; setWeekOffset(next); setShowAll(false); pushToContext(next, false); }}
-                        disabled={isCustomRange || weekOffset >= 0 || showAll}
-                        className="rounded-md px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                        aria-label="Nächste Woche"
+                        onClick={handleExportMarkdown}
+                        disabled={users.length === 0}
+                        className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
-                        →
+                        ⬇ Markdown
                     </button>
                 </div>
-
-                <button
-                    onClick={() => { setWeekOffset(0); setShowAll(false); pushToContext(0, false); }}
-                    className={`rounded-md px-3 py-1 text-xs font-medium border transition-colors ${
-                        !isCustomRange && !showAll && weekOffset === 0
-                            ? 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
-                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    }`}
-                >
-                    Aktuelle Woche
-                </button>
-
-                <button
-                    onClick={() => { setShowAll(true); pushToContext(weekOffset, true); }}
-                    className={`rounded-md px-3 py-1 text-xs font-medium border transition-colors ${
-                        !isCustomRange && showAll
-                            ? 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-300'
-                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    }`}
-                >
-                    Gesamter Zeitraum
-                </button>
-
-                <div className="flex-1" />
-
-                <button
-                    onClick={handleCopyMarkdown}
-                    disabled={users.length === 0}
-                    className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                    {copied ? '✓ Kopiert' : '⎘ Kopieren'}
-                </button>
-
-                <button
-                    onClick={handleExportMarkdown}
-                    disabled={users.length === 0}
-                    className="rounded-md px-3 py-1 text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                    ⬇ Markdown
-                </button>
             </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Gebuchte Stunden nach Teammitglied und Kategorie</p>
 
-            {/* Table */}
             {users.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-8">
                     Keine gebuchten Stunden in diesem Zeitraum.
