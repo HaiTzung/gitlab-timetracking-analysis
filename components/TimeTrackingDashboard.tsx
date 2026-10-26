@@ -1036,7 +1036,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         TEAM_COLORS={[...COLORS.TEAM]}
       />
 
-      <IssueDashboard issues={issues} epics={epics} issueStatuses={issueStatuses} />
+      <IssueDashboard issues={issues} epics={epics} issueStatuses={issueStatuses} timelogs={windowTimelogs} projectMetrics={projectMetrics} />
 
       <IssueAnalysis issueComplexityData={issueComplexityData} COLORS={[...COLORS.PRIMARY]} issues={issues} />
 

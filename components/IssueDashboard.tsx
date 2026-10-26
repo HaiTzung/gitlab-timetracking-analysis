@@ -1,16 +1,40 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Issue, Epic } from '@/types/dashboard';
+import { Issue, Epic, Timelog, ProjectMetrics } from '@/types/dashboard';
 import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG } from '@/config/dashboardConfig';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
+    AreaChart, Area,
 } from 'recharts';
-import { format, parseISO, eachWeekOfInterval, addDays, subDays } from 'date-fns';
+import { format, parseISO, eachWeekOfInterval, addDays, subDays, isSameDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useDashboardContext } from '@/context/DashboardContext';
 import { useChartColors } from '@/hooks/useChartColors';
 import { useTheme } from 'next-themes';
+
+const CATEGORY_VALUES_TREND = Object.values(CATEGORIES) as string[];
+
+function buildDailyCategoryData(timelogs: Timelog[], weekStart: Date, weekEnd: Date) {
+    const weekLogs = timelogs.filter(t => {
+        const d = parseISO(t.spentAt);
+        return d >= weekStart && d <= weekEnd;
+    });
+    return Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(weekStart, i);
+        const label = format(day, 'EEE dd.MM.', { locale: de });
+        const categoryHours: Record<string, number> = {};
+        CATEGORY_VALUES_TREND.forEach(cat => {
+            categoryHours[cat] = weekLogs
+                .filter(t => {
+                    const d = parseISO(t.spentAt);
+                    return isSameDay(d, day) && t.issue?.labels?.nodes?.some(l => l.title === cat);
+                })
+                .reduce((s, t) => s + t.timeSpent / 3600, 0);
+        });
+        return { day: label, categoryHours };
+    });
+}
 
 function buildCategoryIssueCount(issues: Issue[]) {
     const CATEGORY_VALUES = Object.values(CATEGORIES) as string[];
@@ -59,6 +83,8 @@ interface IssueDashboardProps {
     epics: Epic[];
     issueStatuses: Map<string, string>;
     defaultExpanded?: boolean;
+    timelogs: Timelog[];
+    projectMetrics: ProjectMetrics;
 }
 
 type StateFilter = 'opened' | 'closed' | 'all';
@@ -344,7 +370,7 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
     );
 }
 
-const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses, defaultExpanded = true }) => {
+const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses, defaultExpanded = true, timelogs, projectMetrics }) => {
     const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
     const { resolvedTheme } = useTheme();
     const dark = resolvedTheme === 'dark';
@@ -418,6 +444,10 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
     const ctx = useDashboardContext();
     const cc = useChartColors();
     const isKwMode = ctx?.timeWindow === 'kw' && !!ctx.customStart && !!ctx.customEnd;
+
+    const dailyCategoryData = isKwMode
+        ? buildDailyCategoryData(timelogs, ctx!.customStart!, ctx!.customEnd!)
+        : [];
 
     const catComparisonData = isKwMode ? (() => {
         const currStart = ctx!.customStart!;
@@ -498,6 +528,73 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                         )}
                     </ResponsiveContainer>
                 </div>
+            )}
+
+            {/* Kategorie-Trend */}
+            {(isKwMode || projectMetrics.sprintData.length > 0) && (
+            <div className="mb-8">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                    {isKwMode ? 'Kategorie-Trend (täglich)' : 'Kategorie-Trend'}
+                </h4>
+                <ResponsiveContainer width="100%" height={240}>
+                    {isKwMode ? (
+                    <AreaChart data={dailyCategoryData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
+                        <XAxis dataKey="day" tick={{ fontSize: 11, fill: cc.axis }} />
+                        <YAxis tick={{ fontSize: 11, fill: cc.axis }} unit="h" label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
+                        <Tooltip
+                            contentStyle={{ background: cc.tooltipBg, border: `1px solid ${cc.tooltipBorder}`, color: cc.tooltipLabel }}
+                            labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
+                            formatter={(value: number, name: string) => [`${value.toFixed(1)}h`, name]}
+                        />
+                        <Legend />
+                        {CATEGORY_VALUES_TREND.map((category) => {
+                            const color = COLORS.CATEGORY[category as keyof typeof COLORS.CATEGORY] ?? '#94a3b8';
+                            return (
+                                <Area
+                                    key={category}
+                                    type="monotone"
+                                    dataKey={`categoryHours.${category}`}
+                                    stackId="1"
+                                    stroke={color}
+                                    fill={color}
+                                    fillOpacity={0.6}
+                                    name={category}
+                                />
+                            );
+                        })}
+                    </AreaChart>
+                    ) : (
+                    <AreaChart data={projectMetrics.sprintData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={cc.grid} />
+                        <XAxis dataKey="sprintStart" tick={{ fontSize: 11, fill: cc.axis }} />
+                        <YAxis tick={{ fontSize: 11, fill: cc.axis }} label={{ value: 'Stunden', angle: -90, position: 'insideLeft', offset: 10, style: { textAnchor: 'middle' }, fontSize: 11 }} />
+                        <Tooltip
+                            contentStyle={{ background: cc.tooltipBg, border: `1px solid ${cc.tooltipBorder}`, color: cc.tooltipLabel }}
+                            labelStyle={{ color: cc.tooltipLabel, fontWeight: 600 }}
+                            labelFormatter={(value) => `Sprint ${value}`}
+                            formatter={(value: number, name: string) => [`${value.toFixed(1)}h`, name]}
+                        />
+                        <Legend />
+                        {Object.keys(projectMetrics.sprintData[0]?.categoryHours || {}).map((category) => {
+                            const color = COLORS.CATEGORY[category as keyof typeof COLORS.CATEGORY] ?? '#94a3b8';
+                            return (
+                                <Area
+                                    key={category}
+                                    type="monotone"
+                                    dataKey={`categoryHours.${category}`}
+                                    stackId="1"
+                                    stroke={color}
+                                    fill={color}
+                                    fillOpacity={0.6}
+                                    name={category}
+                                />
+                            );
+                        })}
+                    </AreaChart>
+                    )}
+                </ResponsiveContainer>
+            </div>
             )}
 
             {/* Toggle + count — only controls the issue tree below */}

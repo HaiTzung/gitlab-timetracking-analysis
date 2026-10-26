@@ -203,6 +203,8 @@ export default function PresentationMode(props: PresentationModeProps) {
                             epics={props.epics}
                             issueStatuses={props.issueStatuses}
                             defaultExpanded={false}
+                            timelogs={props.windowTimelogs}
+                            projectMetrics={props.projectMetrics}
                         />
                     )}
                     {slide === 2 && (
