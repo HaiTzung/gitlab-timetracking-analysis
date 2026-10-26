@@ -116,9 +116,9 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
     const [copied, setCopied] = useState(false);
     const ctx = useDashboardContext();
 
-    const isCustomRange = ctx?.timeWindow === 'custom' && !!(ctx.customStart || ctx.customEnd);
+    const isFiltered = (ctx?.timeWindow === 'custom' || ctx?.timeWindow === 'kw') && !!(ctx.customStart || ctx.customEnd);
 
-    const filtered = isCustomRange
+    const filtered = isFiltered
         ? timelogs.filter(log => {
             const d = parseISO(log.spentAt);
             return (!ctx.customStart || d >= ctx.customStart) && (!ctx.customEnd || d <= ctx.customEnd);
@@ -128,11 +128,11 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
     const allUsers = [...new Set(timelogs.map(t => t.user.name))].sort();
     const { users, categories, data, rowTotals, colTotals, grandTotal } = buildMatrix(filtered, allUsers);
 
-    const rangeLabel = isCustomRange
+    const rangeLabel = isFiltered
         ? (() => {
             const s = ctx?.customStart;
             const e = ctx?.customEnd;
-            if (!s && !e) return 'Benutzerdefiniert';
+            if (!s && !e) return ctx?.timeWindow === 'kw' ? 'KW' : 'Benutzerdefiniert';
             if (s && e) return `${format(s, 'dd.MM.yyyy')} – ${format(e, 'dd.MM.yyyy')}`;
             if (s) return `ab ${format(s, 'dd.MM.yyyy')}`;
             return `bis ${format(e!, 'dd.MM.yyyy')}`;
@@ -145,7 +145,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
             return `${format(earliest, 'dd.MM.yyyy')} – ${format(latest, 'dd.MM.yyyy')}`;
         })();
 
-    const timeLabel = isCustomRange ? 'Benutzerdefiniert' : 'Gesamter Zeitraum';
+    const timeLabel = ctx?.timeWindow === 'kw' && isFiltered ? 'Kalenderwoche' : isFiltered ? 'Benutzerdefiniert' : 'Gesamter Zeitraum';
 
     const handleExportMarkdown = () => {
         if (users.length === 0) return;
@@ -154,7 +154,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `zeitaufwand-${isCustomRange ? 'benutzerdefiniert' : 'gesamt'}.md`;
+        a.download = `zeitaufwand-${isFiltered ? (ctx?.timeWindow === 'kw' ? 'kw' : 'benutzerdefiniert') : 'gesamt'}.md`;
         a.click();
         URL.revokeObjectURL(url);
     };

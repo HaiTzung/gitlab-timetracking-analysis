@@ -295,11 +295,33 @@ export default function Sidebar({ open }: SidebarProps) {
             {/* Week offset toggle */}
             <div className="flex rounded-md overflow-hidden border border-gray-200 dark:border-gray-600 mt-2">
               <button
-                onClick={() => { ctx?.onSetTuOffset?.(true); ctx?.onSetTimeWindow("all"); ctx?.onSetCustomDates(null, null); }}
+                onClick={() => {
+                  ctx?.onSetTuOffset?.(true);
+                  if (activeWindow === "kw" && ctx?.customStart) {
+                    const mon = startOfWeek(ctx.customStart, { weekStartsOn: 1 });
+                    const wStart = addDays(mon, 1);
+                    const wEnd = new Date(new Date(addDays(mon, 7)).setHours(23, 59, 59, 0));
+                    ctx.onSetCustomDates(wStart, wEnd);
+                  } else {
+                    ctx?.onSetTimeWindow("all");
+                    ctx?.onSetCustomDates(null, null);
+                  }
+                }}
                 className={`flex-1 py-1 text-xs font-medium transition-colors ${tuOffset ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
               >Di–Mo</button>
               <button
-                onClick={() => { ctx?.onSetTuOffset?.(false); ctx?.onSetTimeWindow("all"); ctx?.onSetCustomDates(null, null); }}
+                onClick={() => {
+                  ctx?.onSetTuOffset?.(false);
+                  if (activeWindow === "kw" && ctx?.customStart) {
+                    const mon = startOfWeek(ctx.customStart, { weekStartsOn: 1 });
+                    const wStart = mon;
+                    const wEnd = endOfWeek(mon, { weekStartsOn: 1 });
+                    ctx.onSetCustomDates(wStart, wEnd);
+                  } else {
+                    ctx?.onSetTimeWindow("all");
+                    ctx?.onSetCustomDates(null, null);
+                  }
+                }}
                 className={`flex-1 py-1 text-xs font-medium transition-colors border-l border-gray-200 dark:border-gray-600 ${!tuOffset ? "bg-blue-600 text-white" : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
               >Mo–So</button>
             </div>
