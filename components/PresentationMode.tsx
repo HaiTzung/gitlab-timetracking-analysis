@@ -62,13 +62,16 @@ export default function PresentationMode(props: PresentationModeProps) {
         const monStart = startOfWeek(parseISO(earliest), { weekStartsOn: 1 });
         const monEnd   = startOfWeek(new Date(), { weekStartsOn: 1 });
         const weeks = eachWeekOfInterval({ start: monStart, end: monEnd }, { weekStartsOn: 1 });
+        const today = new Date();
         const todayMonAnchor = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().slice(0, 10);
         return weeks.map((mon) => {
             const wStart = tuOffset ? addDays(mon, 1) : mon;
             const wEnd   = tuOffset
                 ? new Date(new Date(addDays(mon, 7)).setHours(23, 59, 59, 0))
                 : endOfWeek(mon, { weekStartsOn: 1 });
-            const isCurrent = mon.toISOString().slice(0, 10) === todayMonAnchor;
+            const isCurrent = tuOffset
+                ? today >= wStart && today <= wEnd
+                : mon.toISOString().slice(0, 10) === todayMonAnchor;
             const base = `KW ${format(mon, 'II/yy', { locale: de })} (${format(wStart, 'dd.MM', { locale: de })}–${format(wEnd, 'dd.MM', { locale: de })})`;
             return { label: isCurrent ? `${base} · diese Woche` : base, weekStart: wStart, weekEnd: wEnd };
         }).reverse();
