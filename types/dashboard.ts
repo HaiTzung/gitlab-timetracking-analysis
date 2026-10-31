@@ -9,6 +9,7 @@ export interface IssueNote {
 
 export interface Issue {
     title: string;
+    description?: string;
     timeEstimate: number;
     totalTimeSpent: number;
     category: string;

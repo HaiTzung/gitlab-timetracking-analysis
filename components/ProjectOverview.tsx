@@ -7,43 +7,152 @@ interface ProjectOverviewProps {
     issues: Issue[];
 }
 
+interface Warning {
+    key: string;
+    issues: Issue[];
+    label: string;
+    detail: string;
+}
+
+const WARNINGS: Array<Omit<Warning, 'issues'> & { filter: (issues: Issue[]) => Issue[] }> = [
+    {
+        key: 'closed-no-estimate',
+        filter: (issues) => issues.filter(i => i.state === 'closed' && i.timeEstimate === 0 && i.totalTimeSpent > 0),
+        label: 'Geschlossen ohne Zeitschätzung',
+        detail: 'Schätzungen setzen mit /estimate Xh',
+    },
+    {
+        key: 'open-no-estimate',
+        filter: (issues) => issues.filter(i => i.state === 'opened' && i.timeEstimate === 0),
+        label: 'Offen ohne Zeitschätzung',
+        detail: 'Schätzungen setzen mit /estimate Xh',
+    },
+    {
+        key: 'no-label',
+        filter: (issues) => issues.filter(i => !i.labels.nodes.some(l => l.title.startsWith('category::'))),
+        label: 'Kein Kategorie-Label',
+        detail: 'Label der Form category::… vergeben',
+    },
+    {
+        key: 'no-epic',
+        filter: (issues) => issues.filter(i => !i.epic),
+        label: 'Kein Epic',
+        detail: 'Issue einem Epic zuordnen',
+    },
+    {
+        key: 'no-milestone',
+        filter: (issues) => issues.filter(i => !i.milestone),
+        label: 'Kein Milestone',
+        detail: 'Milestone zuweisen für Sprint-Tracking',
+    },
+    {
+        key: 'short-description',
+        filter: (issues) => issues.filter(i => (i.description ?? '').trim().length < 50),
+        label: 'Beschreibung unter 50 Zeichen',
+        detail: 'Aussagekräftige Beschreibung hinzufügen',
+    },
+    {
+        key: 'closed-no-time',
+        filter: (issues) => issues.filter(i => i.state === 'closed' && i.totalTimeSpent === 0),
+        label: 'Geschlossen ohne gebuchte Zeit',
+        detail: 'Zeit nachbuchen oder Issue prüfen',
+    },
+];
+
 const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issues }) => {
-    const missingEstimates = issues.filter(i => i.timeEstimate === 0 && i.totalTimeSpent > 0);
-    const [expanded, setExpanded] = useState(false);
+    const [rootOpen, setRootOpen] = useState(false);
+    const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+
+    const warnings: Warning[] = WARNINGS
+        .map(({ filter, ...rest }) => ({ ...rest, issues: filter(issues) }))
+        .filter(w => w.issues.length > 0);
+
+    const totalAffected = new Set(warnings.flatMap(w => w.issues.map(i => i.iid))).size;
+
+    const toggleKey = (key: string) =>
+        setOpenKeys(prev => {
+            const next = new Set(prev);
+            next.has(key) ? next.delete(key) : next.add(key);
+            return next;
+        });
 
     return (
         <div id="projektubersicht" className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">Projektübersicht</h2>
-            {missingEstimates.length > 0 && (
-                <div className="mb-4 rounded-lg border border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-300">
-                    <div className="flex items-start gap-2">
-                        <span className="mt-0.5 text-base">⚠️</span>
-                        <span className="flex-1">
-                            <strong>{missingEstimates.length} {missingEstimates.length === 1 ? 'Issue hat' : 'Issues haben'} keine Zeitschätzung</strong>, obwohl Zeit gebucht wurde.
-                            Schätzungen setzen mit <code className="rounded bg-yellow-100 dark:bg-yellow-900 px-1">/estimate Xh</code> in der Issue-Beschreibung.
+
+            {warnings.length > 0 && (
+                <div className="mb-4 rounded-lg border border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950 text-sm text-yellow-800 dark:text-yellow-300 overflow-hidden">
+                    {/* Root row */}
+                    <button
+                        onClick={() => setRootOpen(o => !o)}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-yellow-100 dark:hover:bg-yellow-900 transition-colors"
+                    >
+                        <span className="text-base">⚠️</span>
+                        <span className="flex-1 font-semibold">
+                            {totalAffected} {totalAffected === 1 ? 'Issue hat' : 'Issues haben'} Qualitätsprobleme
+                            <span className="font-normal ml-1.5 text-yellow-700 dark:text-yellow-400">
+                                ({warnings.length} {warnings.length === 1 ? 'Kategorie' : 'Kategorien'})
+                            </span>
                         </span>
-                        <button
-                            onClick={() => setExpanded(e => !e)}
-                            className="ml-2 shrink-0 text-yellow-700 dark:text-yellow-400 hover:text-yellow-900 dark:hover:text-yellow-200 font-medium underline underline-offset-2"
+                        <svg
+                            className={`shrink-0 transition-transform ${rootOpen ? 'rotate-180' : ''}`}
+                            width="14" height="14" viewBox="0 0 12 12" fill="none"
+                            stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
                         >
-                            {expanded ? 'Ausblenden' : 'Anzeigen'}
-                        </button>
-                    </div>
-                    {expanded && (
-                        <ul className="mt-2 ml-7 space-y-1">
-                            {missingEstimates.map(issue => (
-                                <li key={issue.iid}>
-                                    <a
-                                        href={issue.webUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-yellow-900 dark:text-yellow-300 underline underline-offset-2 hover:text-yellow-700 dark:hover:text-yellow-100"
+                            <path d="M2 4l4 4 4-4" />
+                        </svg>
+                    </button>
+
+                    {/* Category rows */}
+                    {rootOpen && (
+                        <div className="border-t border-yellow-200 dark:border-yellow-800">
+                            {warnings.map((w, idx) => (
+                                <div key={w.key} className={idx > 0 ? 'border-t border-yellow-200 dark:border-yellow-800' : ''}>
+                                    {/* Category row */}
+                                    <button
+                                        onClick={() => toggleKey(w.key)}
+                                        className="w-full flex items-center gap-2 px-4 py-2.5 pl-8 text-left hover:bg-yellow-100 dark:hover:bg-yellow-900 transition-colors"
                                     >
-                                        #{issue.iid} {issue.title}
-                                    </a>
-                                </li>
+                                        <span className="flex-1">
+                                            <span className="font-medium">{w.label}</span>
+                                            <span className="ml-2 text-yellow-600 dark:text-yellow-500 text-xs tabular-nums">
+                                                {w.issues.length} {w.issues.length === 1 ? 'Issue' : 'Issues'}
+                                            </span>
+                                            {w.detail && (
+                                                <span className="ml-2 text-yellow-600 dark:text-yellow-500 text-xs">
+                                                    — {w.detail}
+                                                </span>
+                                            )}
+                                        </span>
+                                        <svg
+                                            className={`shrink-0 transition-transform ${openKeys.has(w.key) ? 'rotate-180' : ''}`}
+                                            width="12" height="12" viewBox="0 0 12 12" fill="none"
+                                            stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                                        >
+                                            <path d="M2 4l4 4 4-4" />
+                                        </svg>
+                                    </button>
+
+                                    {/* Issue links */}
+                                    {openKeys.has(w.key) && (
+                                        <ul className="pb-2 pl-12 pr-4 space-y-1">
+                                            {w.issues.map(issue => (
+                                                <li key={issue.iid}>
+                                                    <a
+                                                        href={issue.webUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-yellow-900 dark:text-yellow-300 underline underline-offset-2 hover:text-yellow-700 dark:hover:text-yellow-100"
+                                                    >
+                                                        #{issue.iid} {issue.title}
+                                                    </a>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
                             ))}
-                        </ul>
+                        </div>
                     )}
                 </div>
             )}
@@ -125,4 +234,4 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
     );
 };
 
-export default ProjectOverview; 
+export default ProjectOverview;

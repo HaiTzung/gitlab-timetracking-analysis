@@ -104,6 +104,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                                 issues(first: 100, after: ${endCursor ? `"${endCursor}"` : "null"}) {
                                     nodes {
                                         title
+                                        description
                                         iid
                                         state
                                         webUrl
