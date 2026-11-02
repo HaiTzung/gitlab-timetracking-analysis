@@ -34,16 +34,26 @@ const WARNINGS: Array<Omit<Warning, 'issues'> & { filter: (issues: Issue[]) => I
         detail: 'Label der Form category::… vergeben',
     },
     {
-        key: 'no-epic',
+        key: 'no-parent',
         filter: (issues) => issues.filter(i => !i.epic),
-        label: 'Kein Epic',
-        detail: 'Issue einem Epic zuordnen',
+        label: 'Kein übergeordnetes Issue/Epic',
+        detail: 'Issue einem Epic oder Parent zuordnen',
     },
     {
-        key: 'no-milestone',
-        filter: (issues) => issues.filter(i => !i.milestone),
-        label: 'Kein Milestone',
+        key: 'missing-milestone',
+        filter: (issues) => issues.filter(i =>
+            !i.labels.nodes.some(l => l.title === 'category::project-management') && !i.milestone
+        ),
+        label: 'Kein Milestone (Pflicht außer project-management)',
         detail: 'Milestone zuweisen für Sprint-Tracking',
+    },
+    {
+        key: 'unwanted-milestone',
+        filter: (issues) => issues.filter(i =>
+            i.labels.nodes.some(l => l.title === 'category::project-management') && !!i.milestone
+        ),
+        label: 'Milestone gesetzt (nicht erlaubt bei project-management)',
+        detail: 'Milestone bei category::project-management entfernen',
     },
     {
         key: 'short-description',
