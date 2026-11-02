@@ -1020,7 +1020,14 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         </div>
       )}
 
-      <ProjectOverview projectMetrics={projectMetrics} issues={issues} />
+      <ProjectOverview
+        projectMetrics={projectMetrics}
+        issues={issues}
+        windowTimelogs={windowTimelogs}
+        timeWindow={timeWindow}
+        customStart={customStart}
+        customEnd={customEnd}
+      />
 
       <DetailedActivity
         formatTime={formatTime}
