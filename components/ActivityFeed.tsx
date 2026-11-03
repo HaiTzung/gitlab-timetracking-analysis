@@ -6,6 +6,7 @@ import { de } from 'date-fns/locale';
 import { Issue, Timelog } from '@/types/dashboard';
 import { TimeWindow } from '@/context/DashboardContext';
 
+type LocalWindow = 'today' | '7d' | '14d' | '30d';
 type EventType = 'timelog' | 'issue_opened' | 'issue_closed' | 'comment';
 
 interface ActivityEvent {
@@ -112,15 +113,16 @@ function EventIcon({ type }: { type: EventType }) {
 
 function getWindowBounds(
     timeWindow: TimeWindow,
-    localWindow: 'today' | '7d',
+    localWindow: LocalWindow,
     customStart: Date | null,
     customEnd: Date | null,
 ): { from: Date; to: Date } {
     const now = new Date();
     if (timeWindow === 'all') {
-        return localWindow === 'today'
-            ? { from: startOfDay(now), to: now }
-            : { from: subDays(now, 7), to: now };
+        if (localWindow === 'today') return { from: startOfDay(now), to: now };
+        if (localWindow === '14d') return { from: subDays(now, 14), to: now };
+        if (localWindow === '30d') return { from: subDays(now, 30), to: now };
+        return { from: subDays(now, 7), to: now };
     }
     const to = timeWindow === 'custom' && customEnd ? customEnd : now;
     const from =
@@ -148,10 +150,11 @@ function formatDate(isoDate: string): string {
 
 export default function ActivityFeed({ timelogs, issues, timeWindow, customStart, customEnd, usernameToName }: ActivityFeedProps) {
     const [open, setOpen] = useState(false);
-    const [localWindow, setLocalWindow] = useState<'today' | '7d'>('today');
+    const [localWindow, setLocalWindow] = useState<LocalWindow>('today');
     const [typeFilter, setTypeFilter] = useState<Set<EventType>>(
         new Set(['timelog', 'issue_opened', 'issue_closed', 'comment'])
     );
+    const [personFilter, setPersonFilter] = useState<string>('all');
 
     const { from, to } = useMemo(
         () => getWindowBounds(timeWindow, localWindow, customStart, customEnd),
@@ -211,6 +214,7 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
             }
             for (const note of issue.notes?.nodes ?? []) {
                 if (!inWindow(note.createdAt, from, to)) continue;
+                if (note.body.includes('Automatische Antwort')) continue;
                 result.push({
                     type: 'comment',
                     timestamp: note.createdAt,
@@ -227,9 +231,17 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
         return result.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
     }, [timelogs, issues, from, to]);
 
+    const allActors = useMemo(
+        () => [...new Set(events.map(e => e.actor).filter(Boolean))].sort(),
+        [events]
+    );
+
     const filtered = useMemo(
-        () => events.filter(e => typeFilter.has(e.type)),
-        [events, typeFilter]
+        () => events.filter(e =>
+            typeFilter.has(e.type) &&
+            (personFilter === 'all' || e.actor === personFilter)
+        ),
+        [events, typeFilter, personFilter]
     );
 
     function toggleType(type: EventType) {
@@ -290,31 +302,45 @@ export default function ActivityFeed({ timelogs, issues, timeWindow, customStart
                             );
                         })}
 
-                        {/* Local window toggle — only shown when global is 'all' */}
-                        {timeWindow === 'all' && (
-                            <div className="ml-auto flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden text-xs">
-                                <button
-                                    onClick={() => setLocalWindow('today')}
-                                    className={`px-3 py-1 transition-colors ${
-                                        localWindow === 'today'
-                                            ? 'bg-gray-800 dark:bg-gray-600 text-white'
-                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                    }`}
-                                >
-                                    Heute
-                                </button>
-                                <button
-                                    onClick={() => setLocalWindow('7d')}
-                                    className={`px-3 py-1 border-l border-gray-200 dark:border-gray-700 transition-colors ${
-                                        localWindow === '7d'
-                                            ? 'bg-gray-800 dark:bg-gray-600 text-white'
-                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                    }`}
-                                >
-                                    Letzte 7 Tage
-                                </button>
-                            </div>
-                        )}
+                        <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
+                            {/* Person filter */}
+                            {allActors.length > 0 && (
+                                <div className="relative">
+                                    <select
+                                        value={personFilter}
+                                        onChange={e => setPersonFilter(e.target.value)}
+                                        className="appearance-none border border-gray-200 dark:border-gray-700 rounded-md pl-2 pr-6 py-1 text-xs text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="all">Alle Personen</option>
+                                        {allActors.map(actor => (
+                                            <option key={actor} value={actor}>{actor}</option>
+                                        ))}
+                                    </select>
+                                    <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400" width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M2 4l4 4 4-4" />
+                                    </svg>
+                                </div>
+                            )}
+
+                            {/* Local window toggle — only shown when global is 'all' */}
+                            {timeWindow === 'all' && (
+                                <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden text-xs">
+                                    {(['today', '7d', '14d', '30d'] as LocalWindow[]).map((w, idx) => (
+                                        <button
+                                            key={w}
+                                            onClick={() => setLocalWindow(w)}
+                                            className={`px-3 py-1 transition-colors ${idx > 0 ? 'border-l border-gray-200 dark:border-gray-700' : ''} ${
+                                                localWindow === w
+                                                    ? 'bg-gray-800 dark:bg-gray-600 text-white'
+                                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                            }`}
+                                        >
+                                            {w === 'today' ? 'Heute' : w === '7d' ? '7 Tage' : w === '14d' ? '14 Tage' : '30 Tage'}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Event list */}

@@ -1,5 +1,15 @@
 services:
   app:
+    build:
+      target: deps
+    command: sh -c "npm run dev"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: 1
     networks: !reset []
   cloudflared:
     profiles:
