@@ -372,14 +372,22 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
 
 const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses, defaultExpanded = true, timelogs, projectMetrics }) => {
     const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
+    const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
     const { resolvedTheme } = useTheme();
     const dark = resolvedTheme === 'dark';
     // Previous-week bars: muted in dark mode so primary bars stay visually dominant
     const prevOpenedColor = dark ? '#991b1b' : '#fca5a5'; // red-800 vs red-300
     const prevClosedColor = dark ? '#166534' : '#86efac'; // green-800 vs green-300
 
-    // All issues sorted newest-first
-    const allSorted = [...issues].sort((a, b) => Number(b.iid) - Number(a.iid));
+    // All unique assignees across all issues, sorted
+    const allAssignees = [...new Set(
+        issues.flatMap(i => i.assignees?.nodes?.map(a => a.name) ?? [])
+    )].sort();
+
+    // All issues sorted newest-first, with assignee filter applied
+    const allSorted = [...issues]
+        .sort((a, b) => Number(b.iid) - Number(a.iid))
+        .filter(i => assigneeFilter === 'all' || i.assignees?.nodes?.some(a => a.name === assigneeFilter));
 
     // Displayed issues — filtered by toggle
     const filteredIssues = stateFilter === 'all'
@@ -599,15 +607,34 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
 
             {/* Toggle + count — only controls the issue tree below */}
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
-                    {(['all', 'opened', 'closed'] as StateFilter[]).map(s => (
-                        <button key={s} onClick={() => setStateFilter(s)}
-                            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                                stateFilter === s ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                            }`}>
-                            {s === 'opened' ? 'Offen' : s === 'closed' ? 'Geschlossen' : 'Alle'}
-                        </button>
-                    ))}
+                <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
+                        {(['all', 'opened', 'closed'] as StateFilter[]).map(s => (
+                            <button key={s} onClick={() => setStateFilter(s)}
+                                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                                    stateFilter === s ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                }`}>
+                                {s === 'opened' ? 'Offen' : s === 'closed' ? 'Geschlossen' : 'Alle'}
+                            </button>
+                        ))}
+                    </div>
+                    {allAssignees.length > 0 && (
+                        <div className="relative">
+                            <select
+                                value={assigneeFilter}
+                                onChange={e => setAssigneeFilter(e.target.value)}
+                                className="appearance-none border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 pl-2.5 pr-6 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="all">Alle Personen</option>
+                                {allAssignees.map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
+                            <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400" width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M2 4l4 4 4-4" />
+                            </svg>
+                        </div>
+                    )}
                 </div>
                 <span className="text-sm text-gray-400 dark:text-gray-500">{filteredIssues.length} Issues</span>
             </div>
