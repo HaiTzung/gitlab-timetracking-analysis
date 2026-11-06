@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Issue, Epic, Timelog, ProjectMetrics } from '@/types/dashboard';
 import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG } from '@/config/dashboardConfig';
 import {
@@ -371,8 +371,17 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
 }
 
 const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses, defaultExpanded = true, timelogs, projectMetrics }) => {
-    const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
-    const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+    const [stateFilter, setStateFilter] = useState<StateFilter>(() => {
+        if (typeof window === 'undefined') return 'opened';
+        return (localStorage.getItem('issueDashboard.stateFilter') as StateFilter) ?? 'opened';
+    });
+    const [assigneeFilter, setAssigneeFilter] = useState<string>(() => {
+        if (typeof window === 'undefined') return 'all';
+        return localStorage.getItem('issueDashboard.assigneeFilter') ?? 'all';
+    });
+
+    useEffect(() => { localStorage.setItem('issueDashboard.stateFilter', stateFilter); }, [stateFilter]);
+    useEffect(() => { localStorage.setItem('issueDashboard.assigneeFilter', assigneeFilter); }, [assigneeFilter]);
     const { resolvedTheme } = useTheme();
     const dark = resolvedTheme === 'dark';
     // Previous-week bars: muted in dark mode so primary bars stay visually dominant
