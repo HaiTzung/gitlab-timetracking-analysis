@@ -552,7 +552,12 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     const weeklyMap: Record<string, Record<string, number>> = {};
     timelogs.forEach((log) => {
       if (log.issue && log.issue.labels && log.issue.labels.nodes) {
-        const week = format(startOfWeek(new Date(log.spentAt)), "'KW' II yyyy");
+        // When tuOffset is true (Tue–Mon weeks), shift Monday logs back 1 day so
+        // they bucket into the prior week (Mon is the last day of a Tue–Mon week,
+        // but startOfWeek would otherwise put it at the start of the next Mon–Sun week).
+        const rawDate = new Date(log.spentAt);
+        const anchorDate = tuOffset && rawDate.getDay() === 1 ? subDays(rawDate, 1) : rawDate;
+        const week = format(startOfWeek(anchorDate, { weekStartsOn: 1 }), "'KW' II yyyy");
         const user = log.user.name;
         if (!weeklyMap[week]) weeklyMap[week] = {};
         if (!weeklyMap[week][user]) weeklyMap[week][user] = 0;
