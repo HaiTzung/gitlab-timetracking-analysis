@@ -16,6 +16,7 @@ import {
   addWeeks,
   subWeeks,
   subDays,
+  addDays,
 } from "date-fns";
 import { de } from "date-fns/locale";
 
@@ -659,9 +660,13 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     }
 
     // === Project Management Metrics ===
-    // Calculate sprint data (assuming 2-week sprints)
+    // Calculate sprint data (weekly buckets aligned to the global week offset)
     const sprintData: ProjectMetrics["sprintData"] = [];
-    let sprintStartDate = new Date(firstDate!);
+    // Snap to the correct week boundary: Monday anchor, then +1 day if tuOffset (Tue–Mon)
+    const monAnchor = startOfWeek(new Date(firstDate!), { weekStartsOn: 1 });
+    let sprintStartDate = tuOffset ? addDays(monAnchor, 1) : monAnchor;
+    // If snapping forward put us past firstDate, step back one week
+    if (sprintStartDate > new Date(firstDate!)) sprintStartDate = addDays(sprintStartDate, -7);
     const endDate = new Date(lastDate!);
 
     // Initialize total category hours
@@ -701,7 +706,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         });
 
         sprintData.push({
-          sprintStart: format(sprintStartDate, "dd.MM.yyyy"),
+          // Label derived from the Monday anchor (ISO week number is always Mon-based)
+          sprintStart: format(tuOffset ? subDays(sprintStartDate, 1) : sprintStartDate, "'KW' II/yy"),
           sprintEnd: format(sprintEnd, "dd.MM.yyyy"),
           totalHours,
           categoryHours: sprintCategoryHours,
