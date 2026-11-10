@@ -267,8 +267,19 @@ function EpicProgressBar({ dc }: { dc: Epic['descendantCounts'] }) {
     );
 }
 
+function epicHasVisibleContent(
+    epicIid: string,
+    epicIssuesFiltered: Map<string, Issue[]>,
+    childEpics: Map<string | null, Epic[]>,
+): boolean {
+    if ((epicIssuesFiltered.get(epicIid)?.length ?? 0) > 0) return true;
+    return (childEpics.get(epicIid) ?? []).some(child =>
+        epicHasVisibleContent(child.iid, epicIssuesFiltered, childEpics)
+    );
+}
+
 function EpicNode({
-    epic, childEpics, epicIssues, allEpics, allIssues, depth = 0, issueStatuses, defaultExpanded = true,
+    epic, childEpics, epicIssues, allEpics, allIssues, depth = 0, issueStatuses, defaultExpanded = true, hideEmptyEpics = false,
 }: {
     epic: Epic;
     childEpics: Map<string | null, Epic[]>;
@@ -278,10 +289,14 @@ function EpicNode({
     depth?: number;
     issueStatuses: Map<string, string>;
     defaultExpanded?: boolean;
+    hideEmptyEpics?: boolean;
 }) {
     const [expanded, setExpanded] = useState(defaultExpanded);
     const directIssues = epicIssues.get(epic.iid) ?? [];
     const children = childEpics.get(epic.iid) ?? [];
+    const visibleChildren = hideEmptyEpics
+        ? children.filter(c => epicHasVisibleContent(c.iid, epicIssues, childEpics))
+        : children;
     const totalIssues = epic.descendantCounts?.openedIssues ?? 0;
     const isClosed = epic.state === 'closed';
 
@@ -335,10 +350,10 @@ function EpicNode({
 
             {expanded && (
                 <div>
-                    {children.map(child => (
+                    {visibleChildren.map(child => (
                         <EpicNode key={child.iid} epic={child} childEpics={childEpics}
                             epicIssues={epicIssues} allEpics={allEpics} allIssues={allIssues}
-                            depth={depth + 1} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />
+                            depth={depth + 1} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} hideEmptyEpics={hideEmptyEpics} />
                     ))}
                     {directIssues.map(issue => (
                         <IssueRow key={issue.iid} issue={issue} depth={depth + 1} issueStatuses={issueStatuses} />
@@ -382,6 +397,12 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
 
     useEffect(() => { localStorage.setItem('issueDashboard.stateFilter', stateFilter); }, [stateFilter]);
     useEffect(() => { localStorage.setItem('issueDashboard.assigneeFilter', assigneeFilter); }, [assigneeFilter]);
+
+    const [hideEmptyEpics, setHideEmptyEpics] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return false;
+        return localStorage.getItem('issueDashboard.hideEmptyEpics') === 'true';
+    });
+    useEffect(() => { localStorage.setItem('issueDashboard.hideEmptyEpics', String(hideEmptyEpics)); }, [hideEmptyEpics]);
     const { resolvedTheme } = useTheme();
     const dark = resolvedTheme === 'dark';
     // Previous-week bars: muted in dark mode so primary bars stay visually dominant
@@ -627,6 +648,8 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                             </button>
                         ))}
                     </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
                     {allAssignees.length > 0 && (
                         <div className="relative">
                             <select
@@ -644,8 +667,17 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                             </svg>
                         </div>
                     )}
+                    <button
+                        onClick={() => setHideEmptyEpics(v => !v)}
+                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+                            hideEmptyEpics
+                                ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                        }`}
+                    >
+                        Leere Epics ausblenden
+                    </button>
                 </div>
-                <span className="text-sm text-gray-400 dark:text-gray-500">{filteredIssues.length} Issues</span>
             </div>
             <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
                 <span className="w-2 flex-shrink-0" />
@@ -661,10 +693,13 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                 <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">Keine Issues gefunden</div>
             ) : (
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {rootEpics.map(epic => (
+                    {(hideEmptyEpics
+                        ? rootEpics.filter(e => epicHasVisibleContent(e.iid, epicIssuesFiltered, childEpics))
+                        : rootEpics
+                    ).map(epic => (
                         <EpicNode key={epic.iid} epic={epic} childEpics={childEpics}
                             epicIssues={epicIssuesFiltered} allEpics={epics} allIssues={filteredIssues}
-                            depth={0} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />
+                            depth={0} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} hideEmptyEpics={hideEmptyEpics} />
                     ))}
                     {orphanIssues.length > 0 && <OrphanGroup issues={orphanIssues} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />}
                 </div>
