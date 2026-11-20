@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Issue, Epic, Timelog, ProjectMetrics } from '@/types/dashboard';
+import { Issue, Epic, Milestone, Timelog, ProjectMetrics } from '@/types/dashboard';
 import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG } from '@/config/dashboardConfig';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
@@ -12,6 +12,7 @@ import { de } from 'date-fns/locale';
 import { useDashboardContext } from '@/context/DashboardContext';
 import { useChartColors } from '@/hooks/useChartColors';
 import { useTheme } from 'next-themes';
+import GanttView from '@/components/GanttView';
 
 const CATEGORY_VALUES_TREND = Object.values(CATEGORIES) as string[];
 
@@ -81,10 +82,13 @@ function buildWeeklyIssueVolume(issues: Issue[]) {
 interface IssueDashboardProps {
     issues: Issue[];
     epics: Epic[];
+    milestones: Milestone[];
     issueStatuses: Map<string, string>;
     defaultExpanded?: boolean;
     timelogs: Timelog[];
     projectMetrics: ProjectMetrics;
+    startDate: Date;
+    endDate: Date;
 }
 
 type StateFilter = 'opened' | 'closed' | 'all';
@@ -385,7 +389,8 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
     );
 }
 
-const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueStatuses, defaultExpanded = true, timelogs, projectMetrics }) => {
+const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, milestones, issueStatuses, defaultExpanded = true, timelogs, projectMetrics, startDate, endDate }) => {
+    const [viewMode, setViewMode] = useState<'issues' | 'gantt'>('issues');
     const [stateFilter, setStateFilter] = useState<StateFilter>(() => {
         if (typeof window === 'undefined') return 'opened';
         return (localStorage.getItem('issueDashboard.stateFilter') as StateFilter) ?? 'opened';
@@ -508,9 +513,29 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
             {/* Header */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Issues</h2>
+                <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
+                    {(['issues', 'gantt'] as const).map(mode => (
+                        <button key={mode} onClick={() => setViewMode(mode)}
+                            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                                viewMode === mode ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                            }`}>
+                            {mode === 'issues' ? 'Issues' : 'Meilensteine'}
+                        </button>
+                    ))}
+                </div>
             </div>
 
-            {/* Category issue count chart */}
+            {viewMode === 'gantt' ? (
+                <GanttView
+                    epics={epics}
+                    milestones={milestones}
+                    issues={issues}
+                    globalStart={startDate}
+                    globalEnd={endDate}
+                    stateFilter={stateFilter}
+                    assigneeFilter={assigneeFilter}
+                />
+            ) : (<>
             {(isKwMode ? catComparisonData.length > 0 : catIssueCounts.length > 0) && (
                 <div className="mb-8">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Issues pro Kategorie — Offen vs. Geschlossen</h4>
@@ -704,6 +729,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, issueSta
                     {orphanIssues.length > 0 && <OrphanGroup issues={orphanIssues} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />}
                 </div>
             )}
+            </>)}
 
             {/* Analytics */}
         </div>

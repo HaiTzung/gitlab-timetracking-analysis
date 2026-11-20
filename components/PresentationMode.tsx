@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Issue, Epic, Timelog, ProjectMetrics } from '@/types/dashboard';
+import { Issue, Epic, Milestone, Timelog, ProjectMetrics } from '@/types/dashboard';
 import { TimeWindow } from '@/context/DashboardContext';
 import { eachWeekOfInterval, startOfWeek, endOfWeek, parseISO, format, addDays } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -42,6 +42,9 @@ export interface PresentationModeProps {
     customEnd: Date | null;
     onSetTimeWindow?: (w: TimeWindow) => void;
     onSetCustomDates?: (start: Date | null, end: Date | null) => void;
+    milestones: Milestone[];
+    startDate: Date;
+    endDate: Date;
 }
 
 export default function PresentationMode(props: PresentationModeProps) {
@@ -201,10 +204,13 @@ export default function PresentationMode(props: PresentationModeProps) {
                         <IssueDashboard
                             issues={props.issues}
                             epics={props.epics}
+                            milestones={props.milestones}
                             issueStatuses={props.issueStatuses}
                             defaultExpanded={false}
                             timelogs={props.windowTimelogs}
                             projectMetrics={props.projectMetrics}
+                            startDate={props.startDate}
+                            endDate={props.endDate}
                         />
                     )}
                     {slide === 2 && (

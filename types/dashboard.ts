@@ -50,6 +50,16 @@ export interface Epic {
     issues: { nodes: Array<{ iid: string }> };
 }
 
+export interface Milestone {
+    id: string;
+    iid: string;
+    title: string;
+    startDate: string | null;
+    dueDate: string | null;
+    webUrl: string;
+    state: string;
+}
+
 export interface Timelog {
     user: { name: string; username: string };
     issue: {

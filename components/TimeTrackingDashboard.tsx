@@ -50,6 +50,7 @@ import PresentationMode from "./PresentationMode";
 import {
   Issue,
   Epic,
+  Milestone,
   Timelog,
   ProjectMetrics,
   ProductivityPatterns,
@@ -68,6 +69,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   const [timelogs, setTimelogs] = useState<Timelog[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [epics, setEpics] = useState<Epic[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [issueStatuses, setIssueStatuses] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
@@ -212,6 +214,55 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     } catch (err) {
       console.error("Error fetching epics:", err);
       setLoadedCount((prev) => prev + 1); // non-fatal: continue without epics
+    }
+  };
+
+  const fetchAllMilestones = async (): Promise<void> => {
+    try {
+      let allMilestones: Milestone[] = [];
+      let hasNextPage = true;
+      let endCursor: string | null = null;
+
+      while (hasNextPage) {
+        const response: any = await axios.post(
+          GITLAB_CONFIG.API_URL,
+          {
+            query: `
+              {
+                group(fullPath: "${GITLAB_CONFIG.GROUP_PATH}") {
+                  milestones(first: 100, after: ${endCursor ? `"${endCursor}"` : "null"}) {
+                    nodes {
+                      id
+                      iid
+                      title
+                      startDate
+                      dueDate
+                      webUrl
+                      state
+                    }
+                    pageInfo { hasNextPage endCursor }
+                  }
+                }
+              }
+            `,
+          },
+          { headers: { "Content-Type": "application/json" } },
+        );
+
+        const data: any = response.data?.data?.group?.milestones;
+        if (!data) {
+          console.warn("Milestones field not available on group. Response:", JSON.stringify(response.data?.errors ?? response.data?.data?.group));
+          break;
+        }
+        allMilestones = [...allMilestones, ...data.nodes];
+        hasNextPage = data.pageInfo.hasNextPage;
+        endCursor = data.pageInfo.endCursor;
+      }
+
+      setMilestones(allMilestones);
+    } catch (err) {
+      console.error("Error fetching milestones:", err);
+      // non-fatal: Gantt will still render without milestone rows
     }
   };
 
@@ -409,11 +460,13 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     setTimelogs([]);
     setIssues([]);
     setEpics([]);
+    setMilestones([]);
     setLoadedCount(0);
     try {
       await Promise.all([
         fetchAllIssues(),
         fetchAllEpics(),
+        fetchAllMilestones(),
         fetchWorkItemStatuses(),
         ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
       ]);
@@ -436,6 +489,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     setTimelogs([]);
     setIssues([]);
     setEpics([]);
+    setMilestones([]);
     setIssueStatuses(new Map());
     setLoadedCount(0);
 
@@ -445,6 +499,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       await Promise.all([
         fetchAllIssues().then(tick),
         fetchAllEpics().then(tick),
+        fetchAllMilestones().then(tick),
         fetchWorkItemStatuses().then(tick),
         ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username).then(tick)),
       ]);
@@ -1055,7 +1110,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         TEAM_COLORS={[...COLORS.TEAM]}
       />
 
-      <IssueDashboard issues={issues} epics={epics} issueStatuses={issueStatuses} timelogs={windowTimelogs} projectMetrics={projectMetrics} />
+      <IssueDashboard issues={issues} epics={epics} milestones={milestones} issueStatuses={issueStatuses} timelogs={windowTimelogs} projectMetrics={projectMetrics} startDate={startDate} endDate={endDate} />
 
       <IssueAnalysis issueComplexityData={issueComplexityData} COLORS={[...COLORS.PRIMARY]} issues={issues} />
 
@@ -1123,6 +1178,9 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         customEnd={customEnd}
         onSetTimeWindow={(w) => setTimeWindow(w)}
         onSetCustomDates={(start, end) => { setCustomStart(start); setCustomEnd(end); }}
+        milestones={milestones}
+        startDate={startDate}
+        endDate={endDate}
       />
     )}
     </>
