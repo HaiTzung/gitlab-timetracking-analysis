@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { Epic, Milestone, Issue } from '@/types/dashboard';
-import { parseISO, differenceInDays, format, addDays, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
+import { parseISO, differenceInDays, format, addDays, endOfMonth, eachMonthOfInterval } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 interface GanttViewProps {
@@ -26,18 +26,6 @@ interface GanttRow {
     barEnd: Date;
     state: string;
     depth: number;
-}
-
-function clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-}
-
-function barStyle(barStart: Date, barEnd: Date, timelineStart: Date, totalDays: number) {
-    const startOffset = differenceInDays(barStart, timelineStart);
-    const duration = Math.max(1, differenceInDays(barEnd, barStart));
-    const leftPct = clamp((startOffset / totalDays) * 100, 0, 100);
-    const widthPct = clamp((duration / totalDays) * 100, 0, 100 - leftPct);
-    return { left: `${leftPct}%`, width: `max(4px, ${widthPct}%)` };
 }
 
 function barColorClass(kind: RowKind, state: string): string {
@@ -191,26 +179,24 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     const totalDays = Math.max(1, differenceInDays(timelineEnd, timelineStart));
 
-    // Month headers
+    const PX_PER_DAY = 18;
+    const timelineWidth = totalDays * PX_PER_DAY;
+
+    // Month headers — pixel-based
     const months = useMemo(() => {
         return eachMonthOfInterval({ start: timelineStart, end: timelineEnd }).map(m => {
             const start = m < timelineStart ? timelineStart : m;
             const end = endOfMonth(m) > timelineEnd ? timelineEnd : endOfMonth(m);
             const days = differenceInDays(end, start) + 1;
-            const widthPct = (days / totalDays) * 100;
-            const offsetPct = (differenceInDays(start, timelineStart) / totalDays) * 100;
-            return {
-                label: format(m, 'MMM yyyy', { locale: de }),
-                widthPct,
-                offsetPct,
-            };
+            const offsetPx = differenceInDays(start, timelineStart) * PX_PER_DAY;
+            const widthPx = days * PX_PER_DAY;
+            return { label: format(m, 'MMM yyyy', { locale: de }), offsetPx, widthPx };
         });
     }, [timelineStart, timelineEnd, totalDays]);
 
     // Today marker
     const today = new Date();
-    const todayOffset = differenceInDays(today, timelineStart);
-    const todayPct = clamp((todayOffset / totalDays) * 100, 0, 100);
+    const todayPx = Math.max(0, differenceInDays(today, timelineStart)) * PX_PER_DAY;
     const showToday = today >= timelineStart && today <= timelineEnd;
 
     // Build rows recursively
@@ -305,23 +291,65 @@ const GanttView: React.FC<GanttViewProps> = ({
     const ROW_HEIGHT = 32;
     const LABEL_WIDTH = 240;
 
+    // Convert bar dates to pixel offsets
+    function barPx(barStart: Date, barEnd: Date): React.CSSProperties {
+        const left = Math.max(0, differenceInDays(barStart, timelineStart)) * PX_PER_DAY;
+        const width = Math.max(4, differenceInDays(barEnd, barStart)) * PX_PER_DAY;
+        return { left, width };
+    }
+
     return (
-        <div className="overflow-x-auto">
-            <div style={{ minWidth: `${LABEL_WIDTH + 800}px` }}>
-                {/* Header row */}
-                <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex" style={{ overflow: 'hidden' }}>
+            {/* Sticky label column */}
+            <div
+                className="flex-shrink-0 z-30 bg-white dark:bg-gray-900"
+                style={{ width: LABEL_WIDTH, boxShadow: '2px 0 4px rgba(0,0,0,0.06)' }}
+            >
+                {/* Header */}
+                <div
+                    className="flex items-center px-3 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
+                    style={{ height: ROW_HEIGHT }}
+                >
+                    Titel
+                </div>
+                {/* Label rows */}
+                {rows.map((row, idx) => (
                     <div
-                        className="flex-shrink-0 px-3 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-r border-gray-200 dark:border-gray-700"
-                        style={{ width: LABEL_WIDTH }}
+                        key={`label-${row.kind}-${row.id}-${idx}`}
+                        className="flex items-center border-b border-r border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        style={{ height: ROW_HEIGHT, paddingLeft: `${8 + row.depth * 16}px`, paddingRight: 8 }}
                     >
-                        Titel
+                        {row.kind === 'epic' && <span className="mr-1 text-blue-400 flex-shrink-0">◆</span>}
+                        {row.kind === 'milestone' && <span className="mr-1 text-purple-400 flex-shrink-0">▲</span>}
+                        {row.kind === 'issue' && <span className="mr-1 text-gray-300 dark:text-gray-600 flex-shrink-0 text-xs">•</span>}
+                        <a
+                            href={row.webUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={row.title}
+                            className={`truncate hover:underline ${labelColorClass(row.kind)}`}
+                        >
+                            {row.title}
+                        </a>
                     </div>
-                    <div className="relative flex-1" style={{ height: 32 }}>
+                ))}
+                {/* Footer spacer */}
+                {showToday && <div style={{ height: 20 }} className="border-r border-gray-200 dark:border-gray-700" />}
+            </div>
+
+            {/* Scrollable timeline */}
+            <div className="overflow-x-auto flex-1">
+                <div style={{ width: timelineWidth, minWidth: timelineWidth }}>
+                    {/* Month header */}
+                    <div
+                        className="relative border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
+                        style={{ height: ROW_HEIGHT, width: timelineWidth }}
+                    >
                         {months.map(m => (
                             <div
                                 key={m.label}
-                                className="absolute top-0 bottom-0 flex items-center justify-start px-2 text-xs text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 overflow-hidden"
-                                style={{ left: `${m.offsetPct}%`, width: `${m.widthPct}%` }}
+                                className="absolute top-0 bottom-0 flex items-center px-2 text-xs text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 overflow-hidden"
+                                style={{ left: m.offsetPx, width: m.widthPx }}
                             >
                                 {m.label}
                             </div>
@@ -329,94 +357,61 @@ const GanttView: React.FC<GanttViewProps> = ({
                         {showToday && (
                             <div
                                 className="absolute top-0 bottom-0 w-px bg-red-400 z-10"
-                                style={{ left: `${todayPct}%` }}
+                                style={{ left: todayPx }}
                             />
                         )}
                     </div>
-                </div>
 
-                {/* Gantt rows */}
-                <div>
+                    {/* Bar rows */}
                     {rows.map((row, idx) => (
                         <div
-                            key={`${row.kind}-${row.id}-${idx}`}
-                            className="flex items-center border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                            style={{ height: ROW_HEIGHT }}
+                            key={`bar-${row.kind}-${row.id}-${idx}`}
+                            className="relative border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                            style={{ height: ROW_HEIGHT, width: timelineWidth }}
                         >
-                            {/* Label column */}
-                            <div
-                                className="flex-shrink-0 flex items-center border-r border-gray-200 dark:border-gray-700 overflow-hidden"
-                                style={{ width: LABEL_WIDTH, paddingLeft: `${8 + row.depth * 16}px`, paddingRight: 8 }}
+                            {/* Month dividers */}
+                            {months.map(m => (
+                                <div
+                                    key={m.label}
+                                    className="absolute top-0 bottom-0 border-r border-gray-100 dark:border-gray-700"
+                                    style={{ left: m.offsetPx, width: m.widthPx }}
+                                />
+                            ))}
+                            {/* Today marker */}
+                            {showToday && (
+                                <div
+                                    className="absolute top-0 bottom-0 w-px bg-red-300 dark:bg-red-600 z-10"
+                                    style={{ left: todayPx }}
+                                />
+                            )}
+                            {/* Gantt bar */}
+                            <a
+                                href={row.webUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`${row.title}\n${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`}
+                                className={`absolute top-1/2 -translate-y-1/2 h-5 rounded flex items-center px-1.5 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state)}`}
+                                style={barPx(row.barStart, row.barEnd)}
                             >
-                                {row.kind === 'epic' && (
-                                    <span className="mr-1 text-blue-400 flex-shrink-0">◆</span>
-                                )}
-                                {row.kind === 'milestone' && (
-                                    <span className="mr-1 text-purple-400 flex-shrink-0">▲</span>
-                                )}
-                                {row.kind === 'issue' && (
-                                    <span className="mr-1 text-gray-300 dark:text-gray-600 flex-shrink-0 text-xs">•</span>
-                                )}
-                                <a
-                                    href={row.webUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title={row.title}
-                                    className={`truncate hover:underline ${labelColorClass(row.kind)}`}
-                                >
+                                <span className="text-white text-xs truncate leading-tight select-none">
                                     {row.title}
-                                </a>
-                            </div>
-
-                            {/* Bar column */}
-                            <div className="relative flex-1 h-full">
-                                {/* Month dividers */}
-                                {months.map(m => (
-                                    <div
-                                        key={m.label}
-                                        className="absolute top-0 bottom-0 border-r border-gray-100 dark:border-gray-700"
-                                        style={{ left: `${m.offsetPct}%`, width: `${m.widthPct}%` }}
-                                    />
-                                ))}
-                                {/* Today marker */}
-                                {showToday && (
-                                    <div
-                                        className="absolute top-0 bottom-0 w-px bg-red-300 dark:bg-red-600 z-10"
-                                        style={{ left: `${todayPct}%` }}
-                                    />
-                                )}
-                                {/* Gantt bar */}
-                                <a
-                                    href={row.webUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    title={`${row.title}\n${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`}
-                                    className={`absolute top-1/2 -translate-y-1/2 h-5 rounded flex items-center px-1.5 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state)}`}
-                                    style={barStyle(row.barStart, row.barEnd, timelineStart, totalDays)}
-                                >
-                                    <span className="text-white text-xs truncate leading-tight select-none">
-                                        {row.title}
-                                    </span>
-                                </a>
-                            </div>
+                                </span>
+                            </a>
                         </div>
                     ))}
-                </div>
 
-                {/* Footer: today label */}
-                {showToday && (
-                    <div className="flex border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                        <div className="flex-shrink-0" style={{ width: LABEL_WIDTH }} />
-                        <div className="relative flex-1 h-5">
+                    {/* Footer: today label */}
+                    {showToday && (
+                        <div className="relative border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800" style={{ height: 20, width: timelineWidth }}>
                             <div
                                 className="absolute text-xs text-red-400 font-medium"
-                                style={{ left: `${todayPct}%`, transform: 'translateX(-50%)' }}
+                                style={{ left: todayPx, transform: 'translateX(-50%)' }}
                             >
                                 Heute
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </div>
     );
