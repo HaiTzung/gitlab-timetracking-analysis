@@ -200,6 +200,11 @@ const GanttView: React.FC<GanttViewProps> = ({
     const showToday = today >= timelineStart && today <= timelineEnd;
 
     // Build rows recursively
+    function epicHasContent(epicIid: string): boolean {
+        if ((epicIssues.get(epicIid)?.length ?? 0) > 0) return true;
+        return (childEpics.get(epicIid) ?? []).some(c => epicHasContent(c.iid));
+    }
+
     function issueRow(issue: Issue, depth: number): GanttRow {
         const barStart = parseISO(issue.createdAt);
         let barEnd: Date;
@@ -236,7 +241,9 @@ const GanttView: React.FC<GanttViewProps> = ({
             depth,
         });
         // Child epics
-        const children = (childEpics.get(epic.iid) ?? []).slice().sort((a, b) => {
+        const children = (childEpics.get(epic.iid) ?? [])
+            .filter(c => epicHasContent(c.iid))
+            .slice().sort((a, b) => {
             if (!a.startDate && !b.startDate) return 0;
             if (!a.startDate) return 1;
             if (!b.startDate) return -1;
@@ -250,10 +257,12 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     const rows = useMemo(() => {
         const result: GanttRow[] = [];
-        // Epics + their issues
-        rootEpics.forEach(epic => result.push(...epicRows(epic, 0)));
-        // Milestones + their associated issues
-        const sortedMilestones = [...milestones].sort((a, b) => {
+        // Epics + their issues (skip empty epics)
+        rootEpics.filter(e => epicHasContent(e.iid)).forEach(epic => result.push(...epicRows(epic, 0)));
+        // Milestones + their associated issues (skip empty milestones)
+        const sortedMilestones = [...milestones]
+            .filter(ms => (milestoneIssues.get(ms.title)?.length ?? 0) > 0)
+            .sort((a, b) => {
             if (!a.startDate && !b.startDate) return 0;
             if (!a.startDate) return 1;
             if (!b.startDate) return -1;
