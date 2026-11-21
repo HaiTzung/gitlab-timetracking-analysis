@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { Epic, Milestone, Issue } from '@/types/dashboard';
-import { parseISO, differenceInDays, format, addDays, endOfMonth, eachMonthOfInterval } from 'date-fns';
+import { parseISO, differenceInDays, format, addDays, endOfMonth, eachMonthOfInterval, startOfWeek, addWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useDashboardContext } from '@/context/DashboardContext';
 
 interface GanttViewProps {
     epics: Epic[];
@@ -13,6 +14,7 @@ interface GanttViewProps {
     globalEnd: Date;
     stateFilter: 'opened' | 'closed' | 'all';
     assigneeFilter: string;
+    pxPerDay: number;
 }
 
 type RowKind = 'epic' | 'milestone' | 'issue';
@@ -28,17 +30,33 @@ interface GanttRow {
     depth: number;
 }
 
-function barColorClass(kind: RowKind, state: string): string {
-    if (kind === 'epic') return 'bg-blue-500 hover:bg-blue-600';
+// Depth-indexed palette for epic bars: depth 0 → deepest blue, deeper → lighter
+const EPIC_BAR_COLORS = [
+    'bg-blue-700 hover:bg-blue-800',
+    'bg-blue-500 hover:bg-blue-600',
+    'bg-blue-400 hover:bg-blue-500',
+    'bg-sky-400 hover:bg-sky-500',
+    'bg-sky-300 hover:bg-sky-400',
+];
+const EPIC_LABEL_COLORS = [
+    'font-semibold text-blue-900 dark:text-blue-100',
+    'font-semibold text-blue-800 dark:text-blue-200',
+    'font-medium text-blue-700 dark:text-blue-300',
+    'font-medium text-sky-700 dark:text-sky-300',
+    'text-sky-600 dark:text-sky-400',
+];
+
+function barColorClass(kind: RowKind, state: string, depth: number): string {
+    if (kind === 'epic') return EPIC_BAR_COLORS[Math.min(depth, EPIC_BAR_COLORS.length - 1)];
     if (kind === 'milestone') return 'bg-purple-500 hover:bg-purple-600';
     if (state === 'closed') return 'bg-gray-400 hover:bg-gray-500';
     return 'bg-green-500 hover:bg-green-600';
 }
 
-function labelColorClass(kind: RowKind): string {
-    if (kind === 'epic') return 'font-semibold text-gray-800 dark:text-gray-100';
+function labelColorClass(kind: RowKind, depth: number): string {
+    if (kind === 'epic') return EPIC_LABEL_COLORS[Math.min(depth, EPIC_LABEL_COLORS.length - 1)];
     if (kind === 'milestone') return 'font-semibold text-purple-700 dark:text-purple-300';
-    return 'text-gray-600 dark:text-gray-300 text-xs';
+    return 'text-gray-600 dark:text-gray-300 text-sm';
 }
 
 const GanttView: React.FC<GanttViewProps> = ({
@@ -49,6 +67,7 @@ const GanttView: React.FC<GanttViewProps> = ({
     globalEnd,
     stateFilter,
     assigneeFilter,
+    pxPerDay,
 }) => {
     // Build epic lookup maps
     const epicByIid = useMemo(() => new Map(epics.map(e => [e.iid, e])), [epics]);
@@ -153,13 +172,19 @@ const GanttView: React.FC<GanttViewProps> = ({
         filteredIssues.filter(i => !epicAssignedIids.has(i.iid) && !i.milestone?.title),
     [filteredIssues, epicAssignedIids]);
 
-    // Determine timeline bounds
+    // Determine timeline bounds — all dates normalized to midnight
     const timelineStart = useMemo(() => {
         const dates: Date[] = [globalStart];
         epics.forEach(e => { if (e.startDate) dates.push(parseISO(e.startDate)); });
         milestones.forEach(m => { if (m.startDate) dates.push(parseISO(m.startDate)); });
-        filteredIssues.forEach(i => dates.push(parseISO(i.createdAt)));
-        return dates.reduce((a, b) => a < b ? a : b);
+        filteredIssues.forEach(i => {
+            const d = parseISO(i.createdAt);
+            d.setHours(0, 0, 0, 0);
+            dates.push(d);
+        });
+        const min = dates.reduce((a, b) => a < b ? a : b);
+        min.setHours(0, 0, 0, 0);
+        return min;
     }, [epics, milestones, filteredIssues, globalStart]);
 
     const timelineEnd = useMemo(() => {
@@ -179,8 +204,32 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     const totalDays = Math.max(1, differenceInDays(timelineEnd, timelineStart));
 
-    const PX_PER_DAY = 18;
+    const ctx = useDashboardContext();
+    const tuOffset = ctx?.tuOffset ?? true;
+
+    const PX_PER_DAY = pxPerDay;
     const timelineWidth = totalDays * PX_PER_DAY;
+
+    // Week markers — pixel-based, respecting tuOffset
+    const weeks = useMemo(() => {
+        // Find the first week boundary at or before timelineStart
+        const monAnchor = startOfWeek(timelineStart, { weekStartsOn: 1 });
+        const firstWeekStart = tuOffset ? addDays(monAnchor, 1) : monAnchor;
+        // If that pushed us past timelineStart, step back one week
+        const start = firstWeekStart > timelineStart ? addDays(firstWeekStart, -7) : firstWeekStart;
+        const result: { offsetPx: number; label: string; weekStart: Date }[] = [];
+        let w = start;
+        while (w <= timelineEnd) {
+            if (w >= timelineStart) {
+                const offsetPx = differenceInDays(w, timelineStart) * PX_PER_DAY;
+                // KW number is always based on Monday, so use Mon anchor for label
+                const monForLabel = tuOffset ? addDays(w, -1) : w;
+                result.push({ offsetPx, label: format(monForLabel, "'KW' II", { locale: de }), weekStart: w });
+            }
+            w = addWeeks(w, 1);
+        }
+        return result;
+    }, [timelineStart, timelineEnd, tuOffset, totalDays]);
 
     // Month headers — pixel-based
     const months = useMemo(() => {
@@ -194,8 +243,9 @@ const GanttView: React.FC<GanttViewProps> = ({
         });
     }, [timelineStart, timelineEnd, totalDays]);
 
-    // Today marker
+    // Today marker — strip time so differenceInDays compares midnight-to-midnight
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const todayPx = Math.max(0, differenceInDays(today, timelineStart)) * PX_PER_DAY;
     const showToday = today >= timelineStart && today <= timelineEnd;
 
@@ -206,10 +256,13 @@ const GanttView: React.FC<GanttViewProps> = ({
     }
 
     function issueRow(issue: Issue, depth: number): GanttRow {
+        // Normalize to midnight so differenceInDays is consistent with date-only epic/milestone dates
         const barStart = parseISO(issue.createdAt);
+        barStart.setHours(0, 0, 0, 0);
         let barEnd: Date;
         if (issue.state === 'closed' && issue.closedAt) {
             barEnd = parseISO(issue.closedAt);
+            barEnd.setHours(0, 0, 0, 0);
         } else {
             barEnd = issueToEpicDue.get(issue.iid) ?? globalEnd;
         }
@@ -297,17 +350,42 @@ const GanttView: React.FC<GanttViewProps> = ({
         );
     }
 
-    const ROW_HEIGHT = 32;
+    const ROW_HEIGHT = 64;
+    const MONTH_HEADER_HEIGHT = 32;
+    const WEEK_HEADER_HEIGHT = 36;
+    const HEADER_HEIGHT = MONTH_HEADER_HEIGHT + WEEK_HEADER_HEIGHT;
     const LABEL_WIDTH = 240;
 
-    // Convert bar dates to pixel offsets
+    const [tooltip, setTooltip] = useState<{ lines: string[]; x: number; y: number } | null>(null);
+    const showTip = useCallback((lines: string[], e: React.MouseEvent) => {
+        setTooltip({ lines, x: e.clientX, y: e.clientY });
+    }, []);
+    const moveTip = useCallback((e: React.MouseEvent) => {
+        setTooltip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null);
+    }, []);
+    const hideTip = useCallback(() => setTooltip(null), []);
+
+    const scrollRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!scrollRef.current || !showToday) return;
+        const el = scrollRef.current;
+        // Center today in the visible area, with a small left margin so context before today is visible
+        const target = todayPx - el.clientWidth * 0.35;
+        el.scrollLeft = Math.max(0, target);
+    // Only run on mount and when pxPerDay changes (zoom resets the scroll position to keep today centered)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pxPerDay]);
+
+    // Convert bar dates to pixel offsets.
+    // Width uses +1 so a bar from day N to day N spans 1 day, not 0.
     function barPx(barStart: Date, barEnd: Date): React.CSSProperties {
         const left = Math.max(0, differenceInDays(barStart, timelineStart)) * PX_PER_DAY;
-        const width = Math.max(4, differenceInDays(barEnd, barStart)) * PX_PER_DAY;
+        const width = Math.max(PX_PER_DAY, (differenceInDays(barEnd, barStart) + 1) * PX_PER_DAY);
         return { left, width };
     }
 
     return (
+        <>
         <div className="flex" style={{ overflow: 'hidden' }}>
             {/* Sticky label column */}
             <div
@@ -317,7 +395,7 @@ const GanttView: React.FC<GanttViewProps> = ({
                 {/* Header */}
                 <div
                     className="flex items-center px-3 border-b border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider"
-                    style={{ height: ROW_HEIGHT }}
+                    style={{ height: HEADER_HEIGHT }}
                 >
                     Titel
                 </div>
@@ -326,17 +404,19 @@ const GanttView: React.FC<GanttViewProps> = ({
                     <div
                         key={`label-${row.kind}-${row.id}-${idx}`}
                         className="flex items-center border-b border-r border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                        style={{ height: ROW_HEIGHT, paddingLeft: `${8 + row.depth * 16}px`, paddingRight: 8 }}
+                        style={{ height: ROW_HEIGHT, paddingLeft: `${12 + row.depth * 16}px`, paddingRight: 12 }}
                     >
-                        {row.kind === 'epic' && <span className="mr-1 text-blue-400 flex-shrink-0">◆</span>}
-                        {row.kind === 'milestone' && <span className="mr-1 text-purple-400 flex-shrink-0">▲</span>}
-                        {row.kind === 'issue' && <span className="mr-1 text-gray-300 dark:text-gray-600 flex-shrink-0 text-xs">•</span>}
+                        {row.kind === 'epic' && <span className="mr-1.5 text-blue-400 flex-shrink-0">◆</span>}
+                        {row.kind === 'milestone' && <span className="mr-1.5 text-purple-400 flex-shrink-0">▲</span>}
+                        {row.kind === 'issue' && <span className="mr-1.5 text-gray-300 dark:text-gray-600 flex-shrink-0 text-sm">•</span>}
                         <a
                             href={row.webUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            title={row.title}
-                            className={`truncate hover:underline ${labelColorClass(row.kind)}`}
+                            onMouseEnter={e => showTip([row.title], e)}
+                            onMouseMove={moveTip}
+                            onMouseLeave={hideTip}
+                            className={`truncate hover:underline ${labelColorClass(row.kind, row.depth)}`}
                         >
                             {row.title}
                         </a>
@@ -347,20 +427,43 @@ const GanttView: React.FC<GanttViewProps> = ({
             </div>
 
             {/* Scrollable timeline */}
-            <div className="overflow-x-auto flex-1">
+            <div ref={scrollRef} className="overflow-x-auto flex-1">
                 <div style={{ width: timelineWidth, minWidth: timelineWidth }}>
                     {/* Month header */}
                     <div
                         className="relative border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
-                        style={{ height: ROW_HEIGHT, width: timelineWidth }}
+                        style={{ height: MONTH_HEADER_HEIGHT, width: timelineWidth }}
                     >
                         {months.map(m => (
                             <div
                                 key={m.label}
-                                className="absolute top-0 bottom-0 flex items-center px-2 text-xs text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 overflow-hidden"
+                                className="absolute top-0 bottom-0 flex items-center px-2 text-xs font-semibold text-gray-600 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700 overflow-hidden"
                                 style={{ left: m.offsetPx, width: m.widthPx }}
                             >
                                 {m.label}
+                            </div>
+                        ))}
+                        {showToday && (
+                            <div
+                                className="absolute top-0 bottom-0 w-px bg-red-400 z-10"
+                                style={{ left: todayPx }}
+                            />
+                        )}
+                    </div>
+
+                    {/* Week header */}
+                    <div
+                        className="relative border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800"
+                        style={{ height: WEEK_HEADER_HEIGHT, width: timelineWidth }}
+                    >
+                        {weeks.map(w => (
+                            <div
+                                key={w.offsetPx}
+                                className="absolute top-0 bottom-0 flex flex-col justify-center px-1.5 border-r border-gray-200 dark:border-gray-700 overflow-hidden"
+                                style={{ left: w.offsetPx, width: 7 * PX_PER_DAY }}
+                            >
+                                <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 leading-tight whitespace-nowrap">{w.label}</span>
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500 leading-tight whitespace-nowrap">{format(w.weekStart, 'dd.MM.', { locale: de })}</span>
                             </div>
                         ))}
                         {showToday && (
@@ -382,8 +485,16 @@ const GanttView: React.FC<GanttViewProps> = ({
                             {months.map(m => (
                                 <div
                                     key={m.label}
-                                    className="absolute top-0 bottom-0 border-r border-gray-100 dark:border-gray-700"
+                                    className="absolute top-0 bottom-0 border-r border-gray-200 dark:border-gray-600"
                                     style={{ left: m.offsetPx, width: m.widthPx }}
+                                />
+                            ))}
+                            {/* Week dividers */}
+                            {weeks.map(w => (
+                                <div
+                                    key={w.offsetPx}
+                                    className="absolute top-0 bottom-0 border-r border-gray-100 dark:border-gray-700/60"
+                                    style={{ left: w.offsetPx, width: 7 * PX_PER_DAY }}
                                 />
                             ))}
                             {/* Today marker */}
@@ -398,8 +509,10 @@ const GanttView: React.FC<GanttViewProps> = ({
                                 href={row.webUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                title={`${row.title}\n${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`}
-                                className={`absolute top-1/2 -translate-y-1/2 h-5 rounded flex items-center px-1.5 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state)}`}
+                                onMouseEnter={e => showTip([row.title, `${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`], e)}
+                                onMouseMove={moveTip}
+                                onMouseLeave={hideTip}
+                                className={`absolute top-1/2 -translate-y-1/2 h-8 rounded flex items-center px-2 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state, row.depth)}`}
                                 style={barPx(row.barStart, row.barEnd)}
                             >
                                 <span className="text-white text-xs truncate leading-tight select-none">
@@ -423,6 +536,18 @@ const GanttView: React.FC<GanttViewProps> = ({
                 </div>
             </div>
         </div>
+
+        {tooltip && (
+            <div
+                className="fixed z-50 pointer-events-none px-2.5 py-1.5 rounded-md shadow-lg bg-gray-900 dark:bg-gray-700 text-white text-xs leading-snug max-w-xs"
+                style={{ left: tooltip.x + 12, top: tooltip.y - 8, transform: 'translateY(-100%)' }}
+            >
+                {tooltip.lines.map((line, i) => (
+                    <div key={i} className={i > 0 ? 'text-gray-300 mt-0.5' : ''}>{line}</div>
+                ))}
+            </div>
+        )}
+        </>
     );
 };
 

@@ -391,6 +391,7 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
 
 const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, milestones, issueStatuses, defaultExpanded = true, timelogs, projectMetrics, startDate, endDate }) => {
     const [viewMode, setViewMode] = useState<'issues' | 'gantt'>('issues');
+    const [pxPerDay, setPxPerDay] = useState(28);
     const [stateFilter, setStateFilter] = useState<StateFilter>(() => {
         if (typeof window === 'undefined') return 'opened';
         return (localStorage.getItem('issueDashboard.stateFilter') as StateFilter) ?? 'opened';
@@ -513,15 +514,42 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
             {/* Header */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Issues</h2>
-                <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
-                    {(['issues', 'gantt'] as const).map(mode => (
-                        <button key={mode} onClick={() => setViewMode(mode)}
-                            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                                viewMode === mode ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                            }`}>
-                            {mode === 'issues' ? 'Issues' : 'Meilensteine'}
-                        </button>
-                    ))}
+                <div className="flex items-center gap-3 flex-1 justify-end flex-wrap">
+                    {/* Zoom slider — only shown in Gantt mode */}
+                    {viewMode === 'gantt' && (
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => setPxPerDay(p => Math.max(4, Math.round(p / 1.4)))}
+                                className="w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold leading-none transition-colors"
+                                title="Herauszoomen"
+                            >−</button>
+                            <input
+                                type="range"
+                                min={4}
+                                max={120}
+                                step={1}
+                                value={pxPerDay}
+                                onChange={e => setPxPerDay(Number(e.target.value))}
+                                className="w-28 accent-blue-400 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
+                            />
+                            <button
+                                onClick={() => setPxPerDay(p => Math.min(120, Math.round(p * 1.4)))}
+                                className="w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold leading-none transition-colors"
+                                title="Hineinzoomen"
+                            >+</button>
+                        </div>
+                    )}
+                    {/* Issues / Meilensteine toggle */}
+                    <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
+                        {(['issues', 'gantt'] as const).map(mode => (
+                            <button key={mode} onClick={() => setViewMode(mode)}
+                                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                                    viewMode === mode ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                }`}>
+                                {mode === 'issues' ? 'Issues' : 'Meilensteine'}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -534,6 +562,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                     globalEnd={endDate}
                     stateFilter={stateFilter}
                     assigneeFilter={assigneeFilter}
+                    pxPerDay={pxPerDay}
                 />
             ) : (<>
             {(isKwMode ? catComparisonData.length > 0 : catIssueCounts.length > 0) && (
