@@ -288,13 +288,17 @@ const GanttView: React.FC<GanttViewProps> = ({
             barEnd.setHours(0, 0, 0, 0);
         } else {
             epicDue = issueToEpicDue.get(issue.iid) ?? null;
-            // Default to end of KW+2 (last day before the KW+3 start), respecting tuOffset week boundary
-            // tuOffset=true → weeks run Tue–Mon; tuOffset=false → weeks run Mon–Sun
-            const weekAnchor = startOfWeek(today, { weekStartsOn: 1 }); // always anchor on Monday
-            const kw2Start = tuOffset ? addDays(addWeeks(weekAnchor, 2), 1) : addWeeks(weekAnchor, 2);
-            let defaultEnd = addDays(kw2Start, 6); // last day of that KW
-            while (defaultEnd <= today) defaultEnd = addWeeks(defaultEnd, 1);
-            barEnd = defaultEnd;
+            const isProjectManagement = issue.labels.nodes.some(l => l.title === 'category::project-management');
+            if (isProjectManagement) {
+                // Cap at parent epic end, but never longer than KW+2; extend +1 KW while overdue
+                const weekAnchor = startOfWeek(today, { weekStartsOn: 1 });
+                const kw2Start = tuOffset ? addDays(addWeeks(weekAnchor, 2), 1) : addWeeks(weekAnchor, 2);
+                let kw2End = addDays(kw2Start, 6);
+                while (kw2End <= today) kw2End = addWeeks(kw2End, 1);
+                barEnd = epicDue !== null && epicDue < kw2End ? epicDue : kw2End;
+            } else {
+                barEnd = epicDue ?? globalEnd;
+            }
         }
         // Overdue = open issue whose parent epic due date has passed (regardless of bar width fallback)
         const isOverdue = issue.state === 'opened' && epicDue !== null && epicDue < today;
