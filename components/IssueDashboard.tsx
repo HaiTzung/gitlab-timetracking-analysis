@@ -553,6 +553,24 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                             ))}
                         </div>
                     )}
+                    {/* Assignee filter — only shown in Gantt mode */}
+                    {viewMode === 'gantt' && allAssignees.length > 0 && (
+                        <div className="relative">
+                            <select
+                                value={assigneeFilter}
+                                onChange={e => setAssigneeFilter(e.target.value)}
+                                className="appearance-none border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 pl-2.5 pr-6 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="all">Alle Personen</option>
+                                {allAssignees.map(name => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
+                            <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400" width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M2 4l4 4 4-4" />
+                            </svg>
+                        </div>
+                    )}
                     {/* Issues / Meilensteine toggle */}
                     <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
                         {(['issues', 'gantt'] as const).map(mode => (
@@ -578,6 +596,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                     assigneeFilter={assigneeFilter}
                     pxPerDay={pxPerDay}
                     ganttStateFilter={ganttStateFilter}
+                    issueStatuses={issueStatuses}
                 />
             ) : (<>
             {(isKwMode ? catComparisonData.length > 0 : catIssueCounts.length > 0) && (

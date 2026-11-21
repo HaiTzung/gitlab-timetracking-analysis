@@ -51,6 +51,8 @@ export default function Sidebar({ open }: SidebarProps) {
 
   const { theme, resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const cycleTheme = () => {
     if (theme === "light") setTheme("dark");
@@ -58,7 +60,9 @@ export default function Sidebar({ open }: SidebarProps) {
     else setTheme("light");
   };
 
-  const themeTitle = theme === "light" ? "Hell → Dunkel" : theme === "dark" ? "Dunkel → Auto" : "Auto → Hell";
+  const themeTitle = mounted
+    ? (theme === "light" ? "Hell → Dunkel" : theme === "dark" ? "Dunkel → Auto" : "Auto → Hell")
+    : "Theme wechseln";
 
   // Build list of calendar weeks from earliest timelog to today
   const kwOptions = useMemo(() => {
@@ -414,25 +418,25 @@ export default function Sidebar({ open }: SidebarProps) {
             aria-label="Toggle theme"
             suppressHydrationWarning
           >
+            {/* Render neutral icon until hydrated to avoid SSR mismatch */}
+            {(!mounted || theme === "system" || !theme) && (
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="8" cy="8" r="5" />
+                <path d="M8 3v10" />
+                <path fill="currentColor" stroke="none" d="M8 3a5 5 0 0 1 0 10V3z" />
+              </svg>
+            )}
             {/* Sun: light mode active */}
-            {theme === "light" && (
+            {mounted && theme === "light" && (
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="8" cy="8" r="3" />
                 <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06" />
               </svg>
             )}
             {/* Moon: dark mode active */}
-            {theme === "dark" && (
+            {mounted && theme === "dark" && (
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z" />
-              </svg>
-            )}
-            {/* Half-sun/half-moon: system/auto */}
-            {(theme === "system" || !theme) && (
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="8" cy="8" r="5" />
-                <path d="M8 3v10" />
-                <path fill="currentColor" stroke="none" d="M8 3a5 5 0 0 1 0 10V3z" />
               </svg>
             )}
           </button>

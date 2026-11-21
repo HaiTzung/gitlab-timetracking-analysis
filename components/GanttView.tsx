@@ -16,6 +16,7 @@ interface GanttViewProps {
     assigneeFilter: string;
     pxPerDay: number;
     ganttStateFilter: 'opened' | 'closed' | 'all';
+    issueStatuses: Map<string, string>;
 }
 
 type RowKind = 'epic' | 'milestone' | 'issue';
@@ -31,6 +32,11 @@ interface GanttRow {
     depth: number;
     assignees?: string[];
     healthStatus?: string | null;
+    isOverdue?: boolean;
+    progress?: number;
+    timeSpent?: number;
+    timeEstimate?: number;
+    issueStatus?: string;
 }
 
 // Depth-indexed palette for epic bars: depth 0 → deepest blue, deeper → lighter
@@ -72,6 +78,7 @@ const GanttView: React.FC<GanttViewProps> = ({
     assigneeFilter,
     pxPerDay,
     ganttStateFilter,
+    issueStatuses,
 }) => {
     // Build epic lookup maps
     const epicByIid = useMemo(() => new Map(epics.map(e => [e.iid, e])), [epics]);
@@ -259,6 +266,8 @@ const GanttView: React.FC<GanttViewProps> = ({
     const todayPx = Math.max(0, differenceInDays(today, timelineStart)) * PX_PER_DAY;
     const showToday = today >= timelineStart && today <= timelineEnd;
 
+    const [collapsedEpics, setCollapsedEpics] = useState<Set<string>>(new Set());
+
     // Build rows recursively
     function epicHasContent(epicIid: string): boolean {
         if ((epicIssues.get(epicIid)?.length ?? 0) > 0) return true;
@@ -288,6 +297,11 @@ const GanttView: React.FC<GanttViewProps> = ({
             depth,
             assignees: issue.assignees?.nodes?.map(a => a.name) ?? [],
             healthStatus: issue.healthStatus ?? null,
+        isOverdue: issue.state === 'opened' && barEnd < new Date(new Date().setHours(0, 0, 0, 0)),
+        progress: issue.timeEstimate > 0 ? Math.min(1, issue.totalTimeSpent / issue.timeEstimate) : undefined,
+        timeSpent: issue.totalTimeSpent,
+        timeEstimate: issue.timeEstimate > 0 ? issue.timeEstimate : undefined,
+        issueStatus: issueStatuses.get(issue.iid),
         };
     }
 
@@ -305,18 +319,23 @@ const GanttView: React.FC<GanttViewProps> = ({
             state: epic.state,
             depth,
         });
-        // Child epics
-        const children = (childEpics.get(epic.iid) ?? [])
-            .filter(c => epicHasContent(c.iid))
-            .slice().sort((a, b) => {
-            if (!a.startDate && !b.startDate) return 0;
-            if (!a.startDate) return 1;
-            if (!b.startDate) return -1;
-            return a.startDate.localeCompare(b.startDate);
-        });
-        children.forEach(child => rows.push(...epicRows(child, depth + 1)));
-        // Issues for this epic
-        (epicIssues.get(epic.iid) ?? []).forEach(issue => rows.push(issueRow(issue, depth + 1)));
+        // If collapsed, skip all children and issues
+        if (!collapsedEpics.has(epic.iid)) {
+            // Child epics
+            const children = (childEpics.get(epic.iid) ?? [])
+                .filter(c => epicHasContent(c.iid))
+                .slice().sort((a, b) => {
+                if (!a.startDate && !b.startDate) return 0;
+                if (!a.startDate) return 1;
+                if (!b.startDate) return -1;
+                return a.startDate.localeCompare(b.startDate);
+            });
+            children.forEach(child => rows.push(...epicRows(child, depth + 1)));
+            // Issues for this epic — sorted by IID ascending
+            (epicIssues.get(epic.iid) ?? [])
+                .slice().sort((a, b) => Number(a.iid) - Number(b.iid))
+                .forEach(issue => rows.push(issueRow(issue, depth + 1)));
+        }
         return rows;
     }
 
@@ -352,7 +371,7 @@ const GanttView: React.FC<GanttViewProps> = ({
         orphanIssues.forEach(issue => result.push(issueRow(issue, 0)));
         return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rootEpics, milestones, epicIssues, milestoneIssues, orphanIssues, globalStart, globalEnd, issueToEpicDue]);
+    }, [rootEpics, milestones, epicIssues, milestoneIssues, orphanIssues, globalStart, globalEnd, issueToEpicDue, collapsedEpics]);
 
     if (rows.length === 0) {
         return (
@@ -373,6 +392,17 @@ const GanttView: React.FC<GanttViewProps> = ({
     function rowTipLines(row: GanttRow, includeDates: boolean): string[] {
         const lines: string[] = [row.title];
         if (includeDates) lines.push(`${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`);
+        if (row.kind === 'issue' && (row.timeSpent !== undefined || row.timeEstimate !== undefined)) {
+            const fmt = (s: number) => {
+                const h = Math.floor(s / 3600);
+                const m = Math.floor((s % 3600) / 60);
+                return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`;
+            };
+            const spent = row.timeSpent ? fmt(row.timeSpent) : '0h';
+            const estimate = row.timeEstimate ? fmt(row.timeEstimate) : null;
+            lines.push(estimate ? `⏱ ${spent} / ${estimate}` : `⏱ ${spent}`);
+        }
+        if (row.issueStatus) lines.push(`◈ ${row.issueStatus}`);
         if (row.assignees?.length) lines.push(`👤 ${row.assignees.join(', ')}`);
         if (row.healthStatus) {
             const label = row.healthStatus === 'on_track' ? '🟢 On track'
@@ -440,7 +470,19 @@ const GanttView: React.FC<GanttViewProps> = ({
                         className="flex items-center border-b border-r border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                         style={{ height: ROW_HEIGHT, paddingLeft: `${12 + row.depth * 16}px`, paddingRight: 12 }}
                     >
-                        {row.kind === 'epic' && <span className="mr-1.5 text-blue-400 flex-shrink-0">◆</span>}
+                        {row.kind === 'epic' && (
+                            <button
+                                onClick={() => setCollapsedEpics(s => {
+                                    const n = new Set(s);
+                                    n.has(row.id) ? n.delete(row.id) : n.add(row.id);
+                                    return n;
+                                })}
+                                className="mr-1.5 flex-shrink-0 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors text-[10px] w-3 text-center leading-none"
+                                title={collapsedEpics.has(row.id) ? 'Ausklappen' : 'Einklappen'}
+                            >
+                                {collapsedEpics.has(row.id) ? '▶' : '▼'}
+                            </button>
+                        )}
                         {row.kind === 'milestone' && <span className="mr-1.5 text-purple-400 flex-shrink-0">▲</span>}
                         {row.kind === 'issue' && <span className="mr-1.5 text-gray-300 dark:text-gray-600 flex-shrink-0 text-sm">•</span>}
                         <a
@@ -454,6 +496,16 @@ const GanttView: React.FC<GanttViewProps> = ({
                         >
                             {row.title}
                         </a>
+                        {row.kind === 'issue' && row.issueStatus?.toLowerCase().includes('in progress') && (
+                            <span className="ml-1.5 flex-shrink-0 w-2 h-2 rounded-full bg-blue-500" title="In Bearbeitung" />
+                        )}
+                        {row.isOverdue && (
+                            <svg className="ml-1.5 flex-shrink-0 animate-pulse" width="15" height="15" viewBox="0 0 14 14" fill="none" aria-label="Überfällig">
+                                <circle cx="7" cy="7" r="6.5" fill="#ef4444" stroke="white" strokeWidth="1" />
+                                <rect x="6.1" y="3.2" width="1.8" height="4.4" rx="0.9" fill="white" />
+                                <circle cx="7" cy="10.2" r="1" fill="white" />
+                            </svg>
+                        )}
                     </div>
                 ))}
                 {/* Footer spacer — always present so label column height matches timeline */}
@@ -486,7 +538,7 @@ const GanttView: React.FC<GanttViewProps> = ({
                                     transform: 'translateY(-50%)',
                                 }}
                             >
-                                {format(scrubDate, 'dd.MM.yyyy', { locale: de })}
+                                {format(scrubDate, 'EEE, dd.MM.yyyy', { locale: de })}
                             </div>
                         </div>
                     )}
@@ -576,9 +628,24 @@ const GanttView: React.FC<GanttViewProps> = ({
                                 className={`absolute top-1/2 -translate-y-1/2 h-8 rounded flex items-center px-2 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state, row.depth)}`}
                                 style={barPx(row.barStart, row.barEnd)}
                             >
-                                <span className="text-white text-xs truncate leading-tight select-none">
+                                {/* Progress fill */}
+                                {row.progress !== undefined && (
+                                    <div
+                                        className="absolute top-0 left-0 bottom-0 bg-white/25 pointer-events-none"
+                                        style={{ width: `${row.progress * 100}%` }}
+                                    />
+                                )}
+                                <span className="relative text-white text-xs truncate leading-tight select-none z-10 flex-1 min-w-0">
                                     {row.title}
                                 </span>
+                                {/* Overdue exclamation mark */}
+                                {row.isOverdue && (
+                                    <svg className="flex-shrink-0 ml-1.5 animate-pulse z-10" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-label="Überfällig">
+                                        <circle cx="7" cy="7" r="6.5" fill="#ef4444" stroke="white" strokeWidth="1.2" />
+                                        <rect x="6.1" y="3.2" width="1.8" height="4.4" rx="0.9" fill="white" />
+                                        <circle cx="7" cy="10.2" r="1" fill="white" />
+                                    </svg>
+                                )}
                             </a>
                         </div>
                     ))}
