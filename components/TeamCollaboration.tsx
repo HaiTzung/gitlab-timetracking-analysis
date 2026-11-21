@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
     ResponsiveContainer, Cell
@@ -99,4 +99,4 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
     );
 };
 
-export default TeamCollaboration; 
+export default memo(TeamCollaboration); 

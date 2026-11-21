@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
     ResponsiveContainer, Cell, ScatterChart, Scatter, ZAxis, ReferenceLine,
@@ -212,4 +212,4 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
     );
 };
 
-export default IssueAnalysis;
+export default memo(IssueAnalysis);

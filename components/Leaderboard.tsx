@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import { Issue, Timelog } from '@/types/dashboard';
 
 interface LeaderboardProps {
@@ -12,7 +12,7 @@ interface LeaderboardProps {
 
 type SortKey = 'hours' | 'issuesWorked' | 'issuesCreated' | 'issuesClosed';
 
-export default function Leaderboard({ timelogs, issues, teamMembers, usernameToName }: LeaderboardProps) {
+function Leaderboard({ timelogs, issues, teamMembers, usernameToName }: LeaderboardProps) {
     const [sortKey, setSortKey] = useState<SortKey>('hours');
     const [sortAsc, setSortAsc] = useState(false);
 
@@ -127,3 +127,5 @@ export default function Leaderboard({ timelogs, issues, teamMembers, usernameToN
         </div>
     );
 }
+
+export default memo(Leaderboard);

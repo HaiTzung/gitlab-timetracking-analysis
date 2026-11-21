@@ -1,6 +1,6 @@
 'use client';
 
-import React from "react";
+import React, { memo } from "react";
 import { Timelog, Issue, ProjectMetrics } from "@/types/dashboard";
 import TimeSpentTable from "@/components/TimeSpentTable";
 import ActivityFeed from "@/components/ActivityFeed";
@@ -145,4 +145,4 @@ const DetailedActivity: React.FC<DetailedActivityProps> = ({
   );
 };
 
-export default DetailedActivity;
+export default memo(DetailedActivity);

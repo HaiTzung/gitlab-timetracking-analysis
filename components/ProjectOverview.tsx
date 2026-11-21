@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { memo, useState, useMemo } from 'react';
 import { CHART_CONFIG, KPI_LABELS, CATEGORY_LABELS } from '../config/dashboardConfig';
 import { ProjectMetrics, Issue, Timelog } from '@/types/dashboard';
 import { TimeWindow } from '@/context/DashboardContext';
@@ -435,4 +435,4 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
     );
 };
 
-export default ProjectOverview;
+export default memo(ProjectOverview);

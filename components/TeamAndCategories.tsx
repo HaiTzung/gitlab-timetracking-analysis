@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
     PieChart, Pie, Cell,
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
@@ -329,4 +329,4 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
     );
 };
 
-export default TeamAndCategories;
+export default memo(TeamAndCategories);

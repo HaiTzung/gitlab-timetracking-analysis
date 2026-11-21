@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
     ResponsiveContainer, Cell
@@ -101,4 +101,4 @@ const ProductivityAnalysis: React.FC<ProductivityAnalysisProps> = ({ productivit
     );
 };
 
-export default ProductivityAnalysis; 
+export default memo(ProductivityAnalysis); 

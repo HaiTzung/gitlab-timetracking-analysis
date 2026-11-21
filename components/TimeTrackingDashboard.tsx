@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import axios from "axios";
 import { useDashboardContextSetter, TimeWindow } from "@/context/DashboardContext";
 import {
@@ -100,7 +100,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     Number.isFinite(rawInterval) && rawInterval > 0 ? rawInterval * 1000 : 300_000;
   const setToolbarState = useDashboardContextSetter();
 
-  const fetchAllIssues = async (bust = false): Promise<void> => {
+  const fetchAllIssues = async (bust = false): Promise<{ issues: Issue[]; fetchedAt?: number }> => {
     try {
       let allIssues: Issue[] = [];
       let hasNextPage = true;
@@ -162,20 +162,16 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         lastResponse = response;
       }
 
-      console.log("Total issues fetched:", allIssues.length);
-      setIssues(allIssues);
-      setLoadedCount((prev) => prev + 1);
-      if (typeof (lastResponse?.data as any)?._fetchedAt === 'number') {
-        setCacheStatus(prev => ({ ...prev, [`issues:${GITLAB_CONFIG.GROUP_PATH}`]: (lastResponse.data as any)._fetchedAt }));
-      }
+      const fetchedAt = typeof (lastResponse?.data as any)?._fetchedAt === 'number'
+        ? (lastResponse.data as any)._fetchedAt as number : undefined;
+      return { issues: allIssues, fetchedAt };
     } catch (err) {
-      setError(ERROR_MESSAGES.FETCH_ISSUES);
       console.error("Error fetching issues:", err);
       throw err;
     }
   };
 
-  const fetchAllEpics = async (bust = false): Promise<void> => {
+  const fetchAllEpics = async (bust = false): Promise<{ epics: Epic[]; fetchedAt?: number }> => {
     try {
       let allEpics: Epic[] = [];
       let hasNextPage = true;
@@ -232,18 +228,16 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         lastResponse = response;
       }
 
-      setEpics(allEpics);
-      setLoadedCount((prev) => prev + 1);
-      if (typeof (lastResponse?.data as any)?._fetchedAt === 'number') {
-        setCacheStatus(prev => ({ ...prev, [`epics:${GITLAB_CONFIG.GROUP_PATH}`]: (lastResponse.data as any)._fetchedAt }));
-      }
+      const fetchedAt = typeof (lastResponse?.data as any)?._fetchedAt === 'number'
+        ? (lastResponse.data as any)._fetchedAt as number : undefined;
+      return { epics: allEpics, fetchedAt };
     } catch (err) {
       console.error("Error fetching epics:", err);
-      setLoadedCount((prev) => prev + 1); // non-fatal: continue without epics
+      return { epics: [], fetchedAt: undefined };
     }
   };
 
-  const fetchAllMilestones = async (bust = false): Promise<void> => {
+  const fetchAllMilestones = async (bust = false): Promise<{ milestones: Milestone[]; fetchedAt?: number }> => {
     try {
       let allMilestones: Milestone[] = [];
       let hasNextPage = true;
@@ -290,17 +284,16 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         lastResponse = response;
       }
 
-      setMilestones(allMilestones);
-      if (typeof (lastResponse?.data as any)?._fetchedAt === 'number') {
-        setCacheStatus(prev => ({ ...prev, [`milestones:${GITLAB_CONFIG.GROUP_PATH}`]: (lastResponse.data as any)._fetchedAt }));
-      }
+      const fetchedAt = typeof (lastResponse?.data as any)?._fetchedAt === 'number'
+        ? (lastResponse.data as any)._fetchedAt as number : undefined;
+      return { milestones: allMilestones, fetchedAt };
     } catch (err) {
       console.error("Error fetching milestones:", err);
-      // non-fatal: Gantt will still render without milestone rows
+      return { milestones: [], fetchedAt: undefined };
     }
   };
 
-  const fetchWorkItemStatuses = async (bust = false): Promise<void> => {
+  const fetchWorkItemStatuses = async (bust = false): Promise<{ statusMap: Map<string, string>; fetchedAt?: number }> => {
     try {
       // Fetch all project paths under the group
       const projectsResp: any = await axios.post(
@@ -364,12 +357,11 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         }),
       );
 
-      setIssueStatuses(statusMap);
-      const wiTs = typeof projectsResp.data?._fetchedAt === 'number' ? projectsResp.data._fetchedAt : Date.now();
-      setCacheStatus(prev => ({ ...prev, [`workitem-statuses:${GITLAB_CONFIG.GROUP_PATH}`]: wiTs }));
+      const fetchedAt = typeof projectsResp.data?._fetchedAt === 'number' ? projectsResp.data._fetchedAt : undefined;
+      return { statusMap, fetchedAt };
     } catch (err) {
       console.error("Error fetching work item statuses:", err);
-      // non-fatal: badges just won't show In Progress
+      return { statusMap: new Map(), fetchedAt: undefined };
     }
   };
 
@@ -530,8 +522,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       const tlPromises = TEAM_MEMBERS.map((username) =>
         fetchTimelogsForUser(username).then(tl => {
           setTimelogs(prev => {
-            // On cold start append; on warm load replace per-user by filtering out
-            // the old entries for this user and appending the new ones.
             const without = prev.filter(t => t.user?.username !== username);
             return [...without, ...tl];
           });
@@ -542,13 +532,27 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
           return tl;
         })
       );
-      await Promise.all([
+      const [issuesRes, epicsRes, milestonesRes, wiRes] = await Promise.all([
         fetchAllIssues(),
         fetchAllEpics(),
         fetchAllMilestones(),
         fetchWorkItemStatuses(),
         ...tlPromises,
-      ]);
+      ] as [Promise<{ issues: Issue[]; fetchedAt?: number }>, Promise<{ epics: Epic[]; fetchedAt?: number }>, Promise<{ milestones: Milestone[]; fetchedAt?: number }>, Promise<{ statusMap: Map<string, string>; fetchedAt?: number }>, ...Promise<Timelog[]>[]]);
+      setIssues(issuesRes.issues);
+      setEpics(epicsRes.epics);
+      setMilestones(milestonesRes.milestones);
+      setIssueStatuses(wiRes.statusMap);
+      setLoadedCount(prev => prev + 4);
+      setCacheStatus(prev => {
+        const next = { ...prev };
+        const GROUP = GITLAB_CONFIG.GROUP_PATH;
+        if (issuesRes.fetchedAt) next[`issues:${GROUP}`] = issuesRes.fetchedAt;
+        if (epicsRes.fetchedAt) next[`epics:${GROUP}`] = epicsRes.fetchedAt;
+        if (milestonesRes.fetchedAt) next[`milestones:${GROUP}`] = milestonesRes.fetchedAt;
+        if (wiRes.fetchedAt) next[`workitem-statuses:${GROUP}`] = wiRes.fetchedAt;
+        return next;
+      });
       await fetchIssueNotes();
       setLastRefreshed(new Date());
     } catch {
@@ -560,7 +564,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   }, []);
 
   const manualRefresh = useCallback(async () => {
-    // Keep existing data visible — fetch fresh data in background, replace on arrival
+    // Keep existing data visible — collect everything locally, then commit in one batch
+    // to avoid intermediate renders that cause chart blinking.
     setBackgroundRefreshing(true);
     setBgLoaded(0);
     setLoadedCount(0);
@@ -568,20 +573,34 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     setError(null);
     const tick = () => setBgLoaded((n) => n + 1);
     try {
-      // Collect fresh timelogs into a local accumulator so we can do one atomic
-      // setTimelogs at the end — prevents old + new data mixing mid-refresh.
       const freshTls: Timelog[][] = [];
       const tlPromises = TEAM_MEMBERS.map((username) =>
         fetchTimelogsForUser(username, true).then(r => { tick(); freshTls.push(r); return r; })
       );
-      await Promise.all([
+      const [issuesRes, epicsRes, milestonesRes, wiRes] = await Promise.all([
         fetchAllIssues(true).then(r => { tick(); return r; }),
         fetchAllEpics(true).then(r => { tick(); return r; }),
         fetchAllMilestones(true).then(r => { tick(); return r; }),
         fetchWorkItemStatuses(true).then(r => { tick(); return r; }),
         ...tlPromises,
-      ]);
+      ] as [Promise<{ issues: Issue[]; fetchedAt?: number }>, Promise<{ epics: Epic[]; fetchedAt?: number }>, Promise<{ milestones: Milestone[]; fetchedAt?: number }>, Promise<{ statusMap: Map<string, string>; fetchedAt?: number }>, ...Promise<Timelog[]>[]]);
+
+      // Commit all state in one synchronous block — React 18 batches these automatically.
+      setIssues(issuesRes.issues);
+      setEpics(epicsRes.epics);
+      setMilestones(milestonesRes.milestones);
+      setIssueStatuses(wiRes.statusMap);
       setTimelogs(freshTls.flat());
+      setLoadedCount(prev => prev + 4 + TEAM_MEMBERS.length);
+      setCacheStatus(() => {
+        const next: Record<string, number> = {};
+        const GROUP = GITLAB_CONFIG.GROUP_PATH;
+        if (issuesRes.fetchedAt) next[`issues:${GROUP}`] = issuesRes.fetchedAt;
+        if (epicsRes.fetchedAt) next[`epics:${GROUP}`] = epicsRes.fetchedAt;
+        if (milestonesRes.fetchedAt) next[`milestones:${GROUP}`] = milestonesRes.fetchedAt;
+        if (wiRes.fetchedAt) next[`workitem-statuses:${GROUP}`] = wiRes.fetchedAt;
+        return next;
+      });
       hasEverLoaded.current = true;
       await fetchIssueNotes(true).then(r => { tick(); return r; });
       setLastRefreshed(new Date());
@@ -1082,7 +1101,34 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}h`;
   };
 
-  if (loading || (backgroundRefreshing && !hasEverLoaded.current)) {
+  const windowTimelogs = filterByWindow(timelogs);
+
+  const {
+    pieData,
+    lineData,
+    barData,
+    heatmapData,
+    projectMetrics,
+    averageTeamMembersData,
+    issueComplexityData,
+    collaborationData,
+    productivityPatterns,
+  } = useMemo(
+    () => processChartData(
+      selectedCategory
+        ? windowTimelogs.filter((t) =>
+            t.issue?.labels?.nodes?.some((l) => l.title === selectedCategory),
+          )
+        : windowTimelogs,
+      selectedCategory
+        ? issues.filter((i) => i.labels?.nodes?.some((l) => l.title === selectedCategory))
+        : issues,
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [windowTimelogs, issues, selectedCategory],
+  );
+
+    if (loading || (backgroundRefreshing && !hasEverLoaded.current)) {
     const percent = Math.round((loadedCount / totalFetchCount) * 100);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-950">
@@ -1116,29 +1162,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   if (timelogs.length === 0 && hasEverLoaded.current) {
     return <div className="alert alert--warning">{ERROR_MESSAGES.NO_DATA}</div>;
   }
-
-  const windowTimelogs = filterByWindow(timelogs);
-
-  const {
-    pieData,
-    lineData,
-    barData,
-    heatmapData,
-    projectMetrics,
-    averageTeamMembersData,
-    issueComplexityData,
-    collaborationData,
-    productivityPatterns,
-  } = processChartData(
-    selectedCategory
-      ? windowTimelogs.filter((t) =>
-          t.issue?.labels?.nodes?.some((l) => l.title === selectedCategory),
-        )
-      : windowTimelogs,
-    selectedCategory
-      ? issues.filter((i) => i.labels?.nodes?.some((l) => l.title === selectedCategory))
-      : issues,
-  );
 
   const userLastLogged: Record<string, string | null> = Object.fromEntries(
     TEAM_MEMBERS.map((username) => {
