@@ -279,13 +279,24 @@ const GanttView: React.FC<GanttViewProps> = ({
         const barStart = parseISO(issue.createdAt);
         barStart.setHours(0, 0, 0, 0);
         let barEnd: Date;
+        let epicDue: Date | null = null;
         if (issue.state === 'closed' && issue.closedAt) {
             barEnd = parseISO(issue.closedAt);
             barEnd.setHours(0, 0, 0, 0);
         } else {
-            barEnd = issueToEpicDue.get(issue.iid) ?? globalEnd;
+            const rawDue = issueToEpicDue.get(issue.iid) ?? null;
+            epicDue = rawDue;
+            barEnd = rawDue ?? globalEnd;
         }
-        if (barEnd <= barStart) barEnd = addDays(barStart, 1);
+        const today = new Date(new Date().setHours(0, 0, 0, 0));
+        // Overdue = open issue whose parent epic due date has passed (regardless of bar width fallback)
+        const isOverdue = issue.state === 'opened' && epicDue !== null && epicDue < today;
+        if (barEnd <= barStart) {
+            // Extend to end of current KW so the bar aligns with week boundaries
+            const monAnchor = startOfWeek(barStart, { weekStartsOn: 1 });
+            const weekEnd = tuOffset ? addDays(monAnchor, 7) : addDays(monAnchor, 6);
+            barEnd = weekEnd > barStart ? weekEnd : addDays(barStart, 7);
+        }
         return {
             kind: 'issue',
             id: issue.iid,
@@ -297,7 +308,7 @@ const GanttView: React.FC<GanttViewProps> = ({
             depth,
             assignees: issue.assignees?.nodes?.map(a => a.name) ?? [],
             healthStatus: issue.healthStatus ?? null,
-        isOverdue: issue.state === 'opened' && barEnd < new Date(new Date().setHours(0, 0, 0, 0)),
+        isOverdue,
         progress: issue.timeEstimate > 0 ? Math.min(1, issue.totalTimeSpent / issue.timeEstimate) : undefined,
         timeSpent: issue.totalTimeSpent,
         timeEstimate: issue.timeEstimate > 0 ? issue.timeEstimate : undefined,
@@ -602,10 +613,10 @@ const GanttView: React.FC<GanttViewProps> = ({
                         className="relative border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800"
                         style={{ height: WEEK_HEADER_HEIGHT, width: timelineWidth }}
                     >
-                        {weeks.map(w => (
+                        {weeks.map((w, wi) => (
                             <div
                                 key={w.offsetPx}
-                                className="absolute top-0 bottom-0 flex flex-col justify-center px-1.5 border-r border-gray-200 dark:border-gray-700 overflow-hidden"
+                                className={`absolute top-0 bottom-0 flex flex-col justify-center px-1.5 border-r border-gray-200 dark:border-gray-700 overflow-hidden${wi % 2 === 0 ? ' bg-gray-100/60 dark:bg-gray-700/30' : ''}`}
                                 style={{ left: w.offsetPx, width: 7 * PX_PER_DAY }}
                             >
                                 <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 leading-tight whitespace-nowrap">{w.label}</span>
@@ -627,6 +638,14 @@ const GanttView: React.FC<GanttViewProps> = ({
                             className="relative border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                             style={{ height: ROW_HEIGHT, width: timelineWidth }}
                         >
+                            {/* Sprint bands — alternating week shading */}
+                            {weeks.map((w, wi) => wi % 2 === 0 ? (
+                                <div
+                                    key={`band-${w.offsetPx}`}
+                                    className="absolute top-0 bottom-0 bg-gray-50/80 dark:bg-gray-800/40 pointer-events-none"
+                                    style={{ left: w.offsetPx, width: 7 * PX_PER_DAY }}
+                                />
+                            ) : null)}
                             {/* Month dividers */}
                             {months.map(m => (
                                 <div
@@ -661,13 +680,6 @@ const GanttView: React.FC<GanttViewProps> = ({
                                 className={`absolute top-1/2 -translate-y-1/2 h-8 rounded flex items-center px-2 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state, row.depth)}`}
                                 style={barPx(row.barStart, row.barEnd)}
                             >
-                                {/* Progress fill */}
-                                {row.progress !== undefined && (
-                                    <div
-                                        className="absolute top-0 left-0 bottom-0 bg-white/25 pointer-events-none"
-                                        style={{ width: `${row.progress * 100}%` }}
-                                    />
-                                )}
                                 <span className="relative text-white text-xs truncate leading-tight select-none z-10 flex-1 min-w-0">
                                     {row.title}
                                 </span>

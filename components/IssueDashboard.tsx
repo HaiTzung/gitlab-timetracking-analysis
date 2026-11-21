@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Issue, Epic, Milestone, Timelog, ProjectMetrics } from '@/types/dashboard';
 import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG } from '@/config/dashboardConfig';
 import {
@@ -510,11 +510,77 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
         })).filter(c => c.prevOpened + c.prevClosed + c.opened + c.closed > 0);
     })() : [];
 
+    const issueSummary = useMemo(() => {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const epicByIid = new Map(epics.map(e => [e.iid, e]));
+        // Build issue -> effective due date (own dueDate, else parent epic dueDate)
+        const effectiveDue = new Map<string, Date>();
+        issues.forEach(i => {
+            if (i.dueDate) { effectiveDue.set(i.iid, new Date(i.dueDate)); return; }
+            const epicIid = i.epic?.iid;
+            if (epicIid) {
+                const epic = epicByIid.get(epicIid);
+                if (epic?.dueDate) effectiveDue.set(i.iid, new Date(epic.dueDate));
+            }
+        });
+        // Reverse lookup for issues linked via epic.issues.nodes
+        epics.forEach(epic => {
+            epic.issues?.nodes?.forEach(node => {
+                if (!effectiveDue.has(node.iid) && epic.dueDate) {
+                    effectiveDue.set(node.iid, new Date(epic.dueDate));
+                }
+            });
+        });
+        const opened = issues.filter(i => i.state === 'opened');
+        const inProgress = opened.filter(i => issueStatuses.get(i.iid)?.toLowerCase().includes('in progress'));
+        const onTrack = opened.filter(i => i.healthStatus === 'on_track');
+        const needsAttention = opened.filter(i => i.healthStatus === 'needs_attention');
+        const atRisk = opened.filter(i => i.healthStatus === 'at_risk');
+        const overdue = opened.filter(i => { const due = effectiveDue.get(i.iid); return due ? due < today : false; });
+        return { total: issues.length, opened: opened.length, inProgress: inProgress.length, onTrack: onTrack.length, needsAttention: needsAttention.length, atRisk: atRisk.length, overdue: overdue.length };
+    }, [issues, epics, issueStatuses]);
+
     return (
         <div id="issue-zeitanalyse" className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow">
             {/* Header */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Issues</h2>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    {issueSummary.inProgress > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                            {issueSummary.inProgress} in Bearbeitung
+                        </span>
+                    )}
+                    {issueSummary.onTrack > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                            {issueSummary.onTrack} on track
+                        </span>
+                    )}
+                    {issueSummary.needsAttention > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0" />
+                            {issueSummary.needsAttention} needs attention
+                        </span>
+                    )}
+                    {issueSummary.atRisk > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                            {issueSummary.atRisk} at risk
+                        </span>
+                    )}
+                    {issueSummary.overdue > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">
+                            <svg className="flex-shrink-0" width="10" height="10" viewBox="0 0 14 14" fill="none">
+                                <circle cx="7" cy="7" r="6.5" fill="#ef4444" stroke="white" strokeWidth="1" />
+                                <rect x="6.1" y="3.2" width="1.8" height="4.4" rx="0.9" fill="white" />
+                                <circle cx="7" cy="10.2" r="1" fill="white" />
+                            </svg>
+                            {issueSummary.overdue} überfällig
+                        </span>
+                    )}
+                </div>
                 <div className="flex items-center gap-3 flex-1 justify-end flex-wrap">
                     {/* Zoom slider — only shown in Gantt mode */}
                     {viewMode === 'gantt' && (
