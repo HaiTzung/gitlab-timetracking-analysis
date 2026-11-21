@@ -23,7 +23,9 @@ async function gitlabQuery(query: string): Promise<any> {
         body: JSON.stringify({ query }),
     });
     if (!res.ok) throw new Error(`GitLab API error: ${res.status}`);
-    return res.json();
+    const json = await res.json();
+    if (json?.errors?.length) throw new Error(`GitLab GraphQL error: ${json.errors[0]?.message}`);
+    return json;
 }
 
 export async function refreshIssues(): Promise<void> {
@@ -131,55 +133,64 @@ export async function refreshTimelogs(): Promise<void> {
     const isPastOnly = endDate < kwStart;
     const ttl = isPastOnly ? TTL.PAST_TIMELOGS : TTL.CURRENT_TIMELOGS;
 
-    await Promise.all(TEAM_MEMBERS.map(async (username) => {
-        let allNodes: any[] = [];
-        let cursor: string | null = null;
-        let hasNext = true;
+    await Promise.allSettled(TEAM_MEMBERS.map(async (username) => {
+        try {
+            let allNodes: any[] = [];
+            let cursor: string | null = null;
+            let hasNext = true;
 
-        while (hasNext) {
-            const data = await gitlabQuery(`{
-                group(fullPath: "${GROUP}") {
-                    timelogs(
-                        first: 100,
-                        after: ${cursor ? `"${cursor}"` : 'null'},
-                        startDate: "${startDate.toISOString()}",
-                        endDate: "${endDate.toISOString()}",
-                        username: "${username}"
-                    ) {
-                        nodes {
-                            user { name username }
-                            issue {
-                                title iid
-                                labels { nodes { title } }
-                                timeEstimate totalTimeSpent
+            while (hasNext) {
+                const data = await gitlabQuery(`{
+                    group(fullPath: "${GROUP}") {
+                        timelogs(
+                            first: 100,
+                            after: ${cursor ? `"${cursor}"` : 'null'},
+                            startDate: "${startDate.toISOString()}",
+                            endDate: "${endDate.toISOString()}",
+                            username: "${username}"
+                        ) {
+                            nodes {
+                                user { name username }
+                                issue {
+                                    title iid
+                                    labels { nodes { title } }
+                                    timeEstimate totalTimeSpent
+                                }
+                                spentAt timeSpent
                             }
-                            spentAt timeSpent
+                            pageInfo { hasNextPage endCursor }
                         }
-                        pageInfo { hasNextPage endCursor }
                     }
-                }
-            }`);
+                }`);
 
-            const tl = data?.data?.group?.timelogs;
-            if (!tl) break;
-            allNodes = [...allNodes, ...tl.nodes];
-            hasNext = tl.pageInfo.hasNextPage;
-            cursor = tl.pageInfo.endCursor;
+                const tl = data?.data?.group?.timelogs;
+                if (!tl) break;
+                allNodes = [...allNodes, ...tl.nodes];
+                hasNext = tl.pageInfo.hasNextPage;
+                cursor = tl.pageInfo.endCursor;
+            }
+
+            setCached(
+                `timelogs:${username}:${startStr}:${endStr}`,
+                { data: { group: { timelogs: { nodes: allNodes } } } },
+                ttl,
+            );
+        } catch (err) {
+            console.error(`[cacheRefresher] timelogs fetch failed for ${username}:`, (err as Error).message);
         }
-
-        setCached(
-            `timelogs:${username}:${startStr}:${endStr}`,
-            { data: { group: { timelogs: { nodes: allNodes } } } },
-            ttl,
-        );
     }));
 }
 
 export async function refreshAll(): Promise<void> {
-    await Promise.all([
+    const results = await Promise.allSettled([
         refreshIssues(),
         refreshEpics(),
         refreshMilestones(),
         refreshTimelogs(),
     ]);
+    for (const r of results) {
+        if (r.status === 'rejected') {
+            console.error('[cacheRefresher] refreshAll partial failure:', r.reason);
+        }
+    }
 }

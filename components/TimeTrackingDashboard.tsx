@@ -1156,6 +1156,11 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     [windowTimelogs, displayIssues, selectedCategory],
   );
 
+  const usernameToName = useMemo<Record<string, string>>(
+    () => Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name])),
+    [timelogs],
+  );
+
     if (loading || (backgroundRefreshing && !hasEverLoaded.current)) {
     const percent = Math.round((loadedCount / totalFetchCount) * 100);
     return (
@@ -1187,12 +1192,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     );
   }
 
-  const usernameToName = useMemo<Record<string, string>>(
-    () => Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name])),
-    [timelogs],
-  );
-
-    if (timelogs.length === 0 && hasEverLoaded.current) {
+  if (timelogs.length === 0 && hasEverLoaded.current) {
     return <div className="alert alert--warning">{ERROR_MESSAGES.NO_DATA}</div>;
   }
 

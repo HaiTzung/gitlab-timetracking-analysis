@@ -35,13 +35,21 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(gitlabBody),
     });
 
+    if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        return NextResponse.json(
+            { error: `GitLab API error ${response.status}`, detail: text },
+            { status: response.status },
+        );
+    }
+
     const data = await response.json();
     const fetchedAt = Date.now();
 
-    if (response.ok && cacheKey) {
+    if (cacheKey) {
         const resolvedTtl = ttlMs ?? TTL.DEFAULT;
         setCached(cacheKey, data, resolvedTtl, fetchedAt);
     }
 
-    return NextResponse.json({ ...data, _fetchedAt: fetchedAt, _fromCache: false }, { status: response.status });
+    return NextResponse.json({ ...data, _fetchedAt: fetchedAt, _fromCache: false });
 }
