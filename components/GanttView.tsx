@@ -403,6 +403,13 @@ const GanttView: React.FC<GanttViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pxPerDay]);
 
+    const [scrub, setScrub] = useState<{ x: number; y: number } | null>(null);
+    const scrubberRef = useRef<HTMLDivElement>(null);
+
+    const scrubDate = scrub !== null
+        ? addDays(timelineStart, Math.floor(scrub.x / PX_PER_DAY))
+        : null;
+
     // Convert bar dates to pixel offsets.
     // Width uses +1 so a bar from day N to day N spans 1 day, not 0.
     function barPx(barStart: Date, barEnd: Date): React.CSSProperties {
@@ -455,7 +462,34 @@ const GanttView: React.FC<GanttViewProps> = ({
 
             {/* Scrollable timeline */}
             <div ref={scrollRef} className="overflow-x-auto flex-1">
-                <div style={{ width: timelineWidth, minWidth: timelineWidth }}>
+                <div
+                    ref={scrubberRef}
+                    style={{ width: timelineWidth, minWidth: timelineWidth, position: 'relative' }}
+                    onMouseMove={e => {
+                        const rect = scrubberRef.current?.getBoundingClientRect();
+                        if (rect) setScrub({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+                    }}
+                    onMouseLeave={() => setScrub(null)}
+                >
+                    {/* Scrubber hairline */}
+                    {scrub !== null && scrubDate && (
+                        <div
+                            className="absolute top-0 bottom-0 w-px bg-blue-400 dark:bg-blue-500 pointer-events-none z-40"
+                            style={{ left: scrub.x }}
+                        >
+                            <div
+                                className="absolute bg-blue-500 dark:bg-blue-600 text-white text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap shadow-sm"
+                                style={{
+                                    top: scrub.y - 10,
+                                    left: scrub.x > timelineWidth - 80 ? 'auto' : 6,
+                                    right: scrub.x > timelineWidth - 80 ? 6 : 'auto',
+                                    transform: 'translateY(-50%)',
+                                }}
+                            >
+                                {format(scrubDate, 'dd.MM.yyyy', { locale: de })}
+                            </div>
+                        </div>
+                    )}
                     {/* Month header */}
                     <div
                         className="relative border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
@@ -570,7 +604,7 @@ const GanttView: React.FC<GanttViewProps> = ({
         {tooltip && (
             <div
                 className="fixed z-50 pointer-events-none px-2.5 py-1.5 rounded-md shadow-lg bg-gray-900 dark:bg-gray-700 text-white text-xs leading-snug max-w-xs"
-                style={{ left: tooltip.x + 12, top: tooltip.y - 8, transform: 'translateY(-100%)' }}
+                style={{ left: tooltip.x + 12, top: tooltip.y - 32, transform: 'translateY(-100%)' }}
             >
                 {tooltip.lines.map((line, i) => (
                     <div key={i} className={i > 0 ? 'text-gray-300 mt-0.5' : ''}>{line}</div>
