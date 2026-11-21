@@ -9,13 +9,13 @@ const store = new Map<string, CacheEntry>();
 
 export const TTL = {
     PAST_TIMELOGS: 24 * 60 * 60 * 1000,   // 24h — past weeks are immutable
-    CURRENT_TIMELOGS: 10 * 60 * 1000,      // 10 min
-    ISSUES: 10 * 60 * 1000,
-    EPICS: 10 * 60 * 1000,
-    MILESTONES: 10 * 60 * 1000,
-    WORK_ITEM_STATUSES: 5 * 60 * 1000,
-    ISSUE_NOTES: 10 * 60 * 1000,
-    DEFAULT: 10 * 60 * 1000,
+    CURRENT_TIMELOGS: 2 * 60 * 60 * 1000, // 2h — survives between hourly refreshes
+    ISSUES: 2 * 60 * 60 * 1000,           // 2h
+    EPICS: 2 * 60 * 60 * 1000,            // 2h
+    MILESTONES: 2 * 60 * 60 * 1000,       // 2h
+    WORK_ITEM_STATUSES: 2 * 60 * 60 * 1000, // 2h
+    ISSUE_NOTES: 2 * 60 * 60 * 1000,      // 2h
+    DEFAULT: 2 * 60 * 60 * 1000,          // 2h
 } as const;
 
 export function getCached(key: string): { data: unknown; fetchedAt: number } | null {

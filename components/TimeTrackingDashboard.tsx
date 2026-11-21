@@ -380,6 +380,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         const response: any = await axios.post(
           GITLAB_CONFIG.API_URL,
           {
+            cacheKey: endCursor ? undefined : `issue-notes:${GITLAB_CONFIG.GROUP_PATH}:${sevenDaysAgo.slice(0, 10)}`,
+            ttlMs: TTL.ISSUE_NOTES,
             bust: bust || undefined,
             query: `
               {
@@ -404,7 +406,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
               }
             `,
           },
-          { headers: { "Content-Type": "application/json" } },
+          { headers: { "Content-Type": "application/json" }, timeout: 30000 },
         );
 
         const issuesData = response.data?.data?.group?.issues;

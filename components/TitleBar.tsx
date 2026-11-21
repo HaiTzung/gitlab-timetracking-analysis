@@ -41,6 +41,21 @@ export default function TitleBar({ onMenuToggle, projectName }: TitleBarProps) {
 
                 <div className="flex-1" />
 
+                {/* Cache freshness indicator */}
+                {ctx && Object.keys(ctx.cacheStatus).length > 0 && (() => {
+                    const now = Date.now();
+                    const oldest = Math.min(...Object.values(ctx.cacheStatus));
+                    const ageMin = (now - oldest) / 60000;
+                    const color = ageMin < 5 ? 'bg-green-500' : ageMin < 30 ? 'bg-yellow-400' : 'bg-red-500';
+                    const timeStr = new Date(oldest).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                        <div className="flex items-center gap-1.5 mr-1" title={`Daten von ${timeStr} Uhr (${Math.round(ageMin)} Min. alt)`}>
+                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
+                            <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{timeStr}</span>
+                        </div>
+                    );
+                })()}
+
                 {ctx && (
                     <button
                         onClick={ctx.onPresentationMode}
