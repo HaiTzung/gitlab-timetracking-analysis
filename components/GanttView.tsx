@@ -406,6 +406,11 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     function rowTipRows(row: GanttRow, includeDates: boolean): TipRow[] {
         const result: TipRow[] = [{ kind: 'title', text: row.title }];
+        if (row.isOverdue) result.push({
+            kind: 'row',
+            icon: <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6.5" fill="#ef4444" stroke="white" strokeWidth="1"/><rect x="6.1" y="3.2" width="1.8" height="4.4" rx="0.9" fill="white"/><circle cx="7" cy="10.2" r="1" fill="white"/></svg>,
+            text: 'Zeitplan überschritten',
+        });
         if (includeDates) result.push({
             kind: 'row',
             icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="1" y="2" width="10" height="9" rx="1.5"/><path d="M4 1v2M8 1v2M1 5h10"/></svg>,
