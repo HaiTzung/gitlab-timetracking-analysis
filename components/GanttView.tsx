@@ -387,11 +387,19 @@ const GanttView: React.FC<GanttViewProps> = ({
     const HEADER_HEIGHT = MONTH_HEADER_HEIGHT + WEEK_HEADER_HEIGHT;
     const LABEL_WIDTH = 240;
 
-    const [tooltip, setTooltip] = useState<{ lines: string[]; x: number; y: number } | null>(null);
+    type TipRow =
+        | { kind: 'title'; text: string }
+        | { kind: 'row'; icon: React.ReactNode; text: string };
 
-    function rowTipLines(row: GanttRow, includeDates: boolean): string[] {
-        const lines: string[] = [row.title];
-        if (includeDates) lines.push(`${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`);
+    const [tooltip, setTooltip] = useState<{ rows: TipRow[]; x: number; y: number } | null>(null);
+
+    function rowTipRows(row: GanttRow, includeDates: boolean): TipRow[] {
+        const result: TipRow[] = [{ kind: 'title', text: row.title }];
+        if (includeDates) result.push({
+            kind: 'row',
+            icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="1" y="2" width="10" height="9" rx="1.5"/><path d="M4 1v2M8 1v2M1 5h10"/></svg>,
+            text: `${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`,
+        });
         if (row.kind === 'issue' && (row.timeSpent !== undefined || row.timeEstimate !== undefined)) {
             const fmt = (s: number) => {
                 const h = Math.floor(s / 3600);
@@ -400,22 +408,47 @@ const GanttView: React.FC<GanttViewProps> = ({
             };
             const spent = row.timeSpent ? fmt(row.timeSpent) : '0h';
             const estimate = row.timeEstimate ? fmt(row.timeEstimate) : null;
-            lines.push(estimate ? `⏱ ${spent} / ${estimate}` : `⏱ ${spent}`);
+            result.push({
+                kind: 'row',
+                icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M6 3.5V6l1.5 1.5"/></svg>,
+                text: estimate ? `${spent} / ${estimate}` : spent,
+            });
         }
-        if (row.issueStatus) lines.push(`◈ ${row.issueStatus}`);
-        if (row.assignees?.length) lines.push(`👤 ${row.assignees.join(', ')}`);
+        if (row.issueStatus) {
+            const isInProgress = row.issueStatus.toLowerCase().includes('in progress');
+            result.push({
+                kind: 'row',
+                icon: isInProgress
+                    ? <span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />
+                    : <span className="w-2 h-2 rounded-full bg-gray-400 inline-block" />,
+                text: row.issueStatus,
+            });
+        }
+        if (row.assignees?.length) result.push({
+            kind: 'row',
+            icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="4" r="2.5"/><path d="M1.5 11c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4"/></svg>,
+            text: row.assignees.join(', '),
+        });
         if (row.healthStatus) {
-            const label = row.healthStatus === 'on_track' ? '🟢 On track'
-                : row.healthStatus === 'needs_attention' ? '🟡 Needs attention'
-                : row.healthStatus === 'at_risk' ? '🔴 At risk'
+            const dot = row.healthStatus === 'on_track' ? 'bg-green-400'
+                : row.healthStatus === 'needs_attention' ? 'bg-yellow-400'
+                : row.healthStatus === 'at_risk' ? 'bg-red-400'
+                : 'bg-gray-400';
+            const label = row.healthStatus === 'on_track' ? 'On track'
+                : row.healthStatus === 'needs_attention' ? 'Needs attention'
+                : row.healthStatus === 'at_risk' ? 'At risk'
                 : row.healthStatus;
-            lines.push(label);
+            result.push({
+                kind: 'row',
+                icon: <span className={`w-2 h-2 rounded-full inline-block ${dot}`} />,
+                text: label,
+            });
         }
-        return lines;
+        return result;
     }
 
-    const showTip = useCallback((lines: string[], e: React.MouseEvent) => {
-        setTooltip({ lines, x: e.clientX, y: e.clientY });
+    const showTip = useCallback((rows: TipRow[], e: React.MouseEvent) => {
+        setTooltip({ rows, x: e.clientX, y: e.clientY });
     }, []);
     const moveTip = useCallback((e: React.MouseEvent) => {
         setTooltip(t => t ? { ...t, x: e.clientX, y: e.clientY } : null);
@@ -489,7 +522,7 @@ const GanttView: React.FC<GanttViewProps> = ({
                             href={row.webUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onMouseEnter={e => showTip(rowTipLines(row, false), e)}
+                            onMouseEnter={e => showTip(rowTipRows(row, false), e)}
                             onMouseMove={moveTip}
                             onMouseLeave={hideTip}
                             className={`truncate hover:underline ${labelColorClass(row.kind, row.depth)}`}
@@ -622,7 +655,7 @@ const GanttView: React.FC<GanttViewProps> = ({
                                 href={row.webUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                onMouseEnter={e => showTip(rowTipLines(row, true), e)}
+                                onMouseEnter={e => showTip(rowTipRows(row, true), e)}
                                 onMouseMove={moveTip}
                                 onMouseLeave={hideTip}
                                 className={`absolute top-1/2 -translate-y-1/2 h-8 rounded flex items-center px-2 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state, row.depth)}`}
@@ -673,9 +706,17 @@ const GanttView: React.FC<GanttViewProps> = ({
                 className="fixed z-50 pointer-events-none px-2.5 py-1.5 rounded-md shadow-lg bg-gray-900 dark:bg-gray-700 text-white text-xs leading-snug max-w-xs"
                 style={{ left: tooltip.x + 12, top: tooltip.y - 32, transform: 'translateY(-100%)' }}
             >
-                {tooltip.lines.map((line, i) => (
-                    <div key={i} className={i > 0 ? 'text-gray-300 mt-0.5' : ''}>{line}</div>
-                ))}
+                {tooltip.rows.map((row, i) => {
+                    if (row.kind === 'title') return (
+                        <div key={i} className="font-medium mb-1.5">{row.text}</div>
+                    );
+                    return (
+                        <div key={i} className="grid mt-0.5" style={{ gridTemplateColumns: '16px 1fr', gap: '0 6px' }}>
+                            <span className="flex items-center justify-center text-gray-400">{row.icon}</span>
+                            <span className="text-gray-300">{row.text}</span>
+                        </div>
+                    );
+                })}
             </div>
         )}
         </>
