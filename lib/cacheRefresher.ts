@@ -13,14 +13,14 @@ const GITLAB_TOKEN = process.env.GITLAB_TOKEN ?? '';
 const startDate = new Date(process.env.NEXT_PUBLIC_START_DATE ?? '2026-09-27');
 const endDate   = new Date(process.env.NEXT_PUBLIC_END_DATE   ?? '2027-07-01');
 
-async function gitlabQuery(query: string, variables?: Record<string, unknown>): Promise<any> {
+async function gitlabQuery(query: string): Promise<any> {
     const res = await fetch(GITLAB_API_URL, {
         method: 'POST',
         headers: {
             Authorization: `Bearer ${GITLAB_TOKEN}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query, variables }),
+        body: JSON.stringify({ query }),
     });
     if (!res.ok) throw new Error(`GitLab API error: ${res.status}`);
     return res.json();
@@ -53,23 +53,20 @@ export async function refreshIssues(): Promise<void> {
 
         const issues = data?.data?.group?.issues;
         if (!issues) break;
-        if (cursor === null) {
-            // Only cache on first page (key covers full result set)
-            const fetchedAt = Date.now();
-            setCached(`issues:${GROUP}`, data, TTL.ISSUES, fetchedAt);
-        }
         allNodes = [...allNodes, ...issues.nodes];
         hasNext = issues.pageInfo.hasNextPage;
         cursor = issues.pageInfo.endCursor;
     }
-    // silent success
+
+    // Cache the full merged dataset — shape matches what serverCache.ts reads
+    setCached(`issues:${GROUP}`, { data: { group: { issues: { nodes: allNodes } } } }, TTL.ISSUES);
 }
 
 export async function refreshEpics(): Promise<void> {
     const GROUP = GITLAB_CONFIG.GROUP_PATH;
+    let allNodes: any[] = [];
     let cursor: string | null = null;
     let hasNext = true;
-    let count = 0;
 
     while (hasNext) {
         const data = await gitlabQuery(`{
@@ -88,21 +85,19 @@ export async function refreshEpics(): Promise<void> {
 
         const epics = data?.data?.group?.epics;
         if (!epics) break;
-        if (cursor === null) {
-            setCached(`epics:${GROUP}`, data, TTL.EPICS);
-        }
-        count += epics.nodes.length;
+        allNodes = [...allNodes, ...epics.nodes];
         hasNext = epics.pageInfo.hasNextPage;
         cursor = epics.pageInfo.endCursor;
     }
-        // silent success (epics)
+
+    setCached(`epics:${GROUP}`, { data: { group: { epics: { nodes: allNodes } } } }, TTL.EPICS);
 }
 
 export async function refreshMilestones(): Promise<void> {
     const GROUP = GITLAB_CONFIG.GROUP_PATH;
+    let allNodes: any[] = [];
     let cursor: string | null = null;
     let hasNext = true;
-    let count = 0;
 
     while (hasNext) {
         const data = await gitlabQuery(`{
@@ -116,14 +111,12 @@ export async function refreshMilestones(): Promise<void> {
 
         const ms = data?.data?.group?.milestones;
         if (!ms) break;
-        if (cursor === null) {
-            setCached(`milestones:${GROUP}`, data, TTL.MILESTONES);
-        }
-        count += ms.nodes.length;
+        allNodes = [...allNodes, ...ms.nodes];
         hasNext = ms.pageInfo.hasNextPage;
         cursor = ms.pageInfo.endCursor;
     }
-        // silent success (milestones)
+
+    setCached(`milestones:${GROUP}`, { data: { group: { milestones: { nodes: allNodes } } } }, TTL.MILESTONES);
 }
 
 export async function refreshTimelogs(): Promise<void> {
@@ -139,9 +132,9 @@ export async function refreshTimelogs(): Promise<void> {
     const ttl = isPastOnly ? TTL.PAST_TIMELOGS : TTL.CURRENT_TIMELOGS;
 
     await Promise.all(TEAM_MEMBERS.map(async (username) => {
+        let allNodes: any[] = [];
         let cursor: string | null = null;
         let hasNext = true;
-        let count = 0;
 
         while (hasNext) {
             const data = await gitlabQuery(`{
@@ -169,14 +162,16 @@ export async function refreshTimelogs(): Promise<void> {
 
             const tl = data?.data?.group?.timelogs;
             if (!tl) break;
-            if (cursor === null) {
-                setCached(`timelogs:${username}:${startStr}:${endStr}`, data, ttl);
-            }
-            count += tl.nodes.length;
+            allNodes = [...allNodes, ...tl.nodes];
             hasNext = tl.pageInfo.hasNextPage;
             cursor = tl.pageInfo.endCursor;
         }
-        // silent success
+
+        setCached(
+            `timelogs:${username}:${startStr}:${endStr}`,
+            { data: { group: { timelogs: { nodes: allNodes } } } },
+            ttl,
+        );
     }));
 }
 

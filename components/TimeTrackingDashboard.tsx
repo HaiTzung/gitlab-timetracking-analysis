@@ -82,7 +82,11 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   const [backgroundRefreshing, setBackgroundRefreshing] = useState(false);
   const [bgLoaded, setBgLoaded] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-  const [cacheStatus, setCacheStatus] = useState<Record<string, number>>({});
+  const [cacheStatus, setCacheStatus] = useState<Record<string, number>>(
+    initialData?.fetchedAt
+      ? { [`issues:${GITLAB_CONFIG.GROUP_PATH}`]: initialData.fetchedAt }
+      : {}
+  );
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [customStart, setCustomStart] = useState<Date | null>(null);
