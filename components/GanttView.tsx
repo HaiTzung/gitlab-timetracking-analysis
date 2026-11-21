@@ -17,6 +17,7 @@ interface GanttViewProps {
     pxPerDay: number;
     ganttStateFilter: 'opened' | 'closed' | 'all';
     issueStatuses: Map<string, string>;
+    refreshedAt?: number;
 }
 
 type RowKind = 'epic' | 'milestone' | 'issue';
@@ -79,6 +80,7 @@ const GanttView: React.FC<GanttViewProps> = ({
     pxPerDay,
     ganttStateFilter,
     issueStatuses,
+    refreshedAt,
 }) => {
     // Build epic lookup maps
     const epicByIid = useMemo(() => new Map(epics.map(e => [e.iid, e])), [epics]);
@@ -350,6 +352,9 @@ const GanttView: React.FC<GanttViewProps> = ({
         return rows;
     }
 
+    const [scrub, setScrub] = useState<{ x: number; y: number } | null>(null);
+    const scrubberRef = useRef<HTMLDivElement>(null);
+
     const rows = useMemo(() => {
         const result: GanttRow[] = [];
         // Epics + their issues (skip empty epics)
@@ -472,10 +477,7 @@ const GanttView: React.FC<GanttViewProps> = ({
         el.scrollLeft = Math.max(0, target);
     // Only run on mount and when pxPerDay changes (zoom resets the scroll position to keep today centered)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pxPerDay]);
-
-    const [scrub, setScrub] = useState<{ x: number; y: number } | null>(null);
-    const scrubberRef = useRef<HTMLDivElement>(null);
+    }, [pxPerDay, refreshedAt]);
 
     if (rows.length === 0) {
         return (

@@ -68,12 +68,24 @@ interface TimeTrackingDashboardProps {
   initialData: CachedDashboardData | null;
 }
 
+// Stable references — defined outside the component so React.memo can bail out.
+// Spread inside JSX creates new array instances on every render, breaking memo.
+const PRIMARY_COLORS = [...COLORS.PRIMARY];
+const TEAM_COLORS_STABLE = [...COLORS.TEAM];
+const TEAM_MEMBERS_STABLE = [...TEAM_MEMBERS];
+
 const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate, endDate, initialData }) => {
   const hasEverLoaded = useRef(initialData !== null);
+  // Live fetch state — updated incrementally as each request completes
   const [timelogs, setTimelogs] = useState<Timelog[]>(initialData?.timelogs ?? []);
   const [issues, setIssues] = useState<Issue[]>(initialData?.issues ?? []);
   const [epics, setEpics] = useState<Epic[]>(initialData?.epics ?? []);
   const [milestones, setMilestones] = useState<Milestone[]>(initialData?.milestones ?? []);
+  // Display snapshot — only updated when a full refresh completes; prevents chart flicker
+  const [displayTimelogs, setDisplayTimelogs] = useState<Timelog[]>(initialData?.timelogs ?? []);
+  const [displayIssues, setDisplayIssues] = useState<Issue[]>(initialData?.issues ?? []);
+  const [displayEpics, setDisplayEpics] = useState<Epic[]>(initialData?.epics ?? []);
+  const [displayMilestones, setDisplayMilestones] = useState<Milestone[]>(initialData?.milestones ?? []);
   const [issueStatuses, setIssueStatuses] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
@@ -519,8 +531,10 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       // Fire all fetches concurrently; set state as each one lands so the UI
       // populates incrementally instead of waiting for the slowest fetch.
       let firstTlDone = false;
+      const coldStartTls: Timelog[][] = [];
       const tlPromises = TEAM_MEMBERS.map((username) =>
         fetchTimelogsForUser(username).then(tl => {
+          coldStartTls.push(tl);
           setTimelogs(prev => {
             const without = prev.filter(t => t.user?.username !== username);
             return [...without, ...tl];
@@ -543,6 +557,9 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       setEpics(epicsRes.epics);
       setMilestones(milestonesRes.milestones);
       setIssueStatuses(wiRes.statusMap);
+      setDisplayIssues(issuesRes.issues);
+      setDisplayEpics(epicsRes.epics);
+      setDisplayMilestones(milestonesRes.milestones);
       setLoadedCount(prev => prev + 4);
       setCacheStatus(prev => {
         const next = { ...prev };
@@ -554,6 +571,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         return next;
       });
       await fetchIssueNotes();
+      // Promote to display snapshot — cold start complete, charts can now render
+      setDisplayTimelogs(coldStartTls.flat());
       setLastRefreshed(new Date());
     } catch {
       setError(ERROR_MESSAGES.LOADING_ERROR);
@@ -585,12 +604,18 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         ...tlPromises,
       ] as [Promise<{ issues: Issue[]; fetchedAt?: number }>, Promise<{ epics: Epic[]; fetchedAt?: number }>, Promise<{ milestones: Milestone[]; fetchedAt?: number }>, Promise<{ statusMap: Map<string, string>; fetchedAt?: number }>, ...Promise<Timelog[]>[]]);
 
-      // Commit all state in one synchronous block — React 18 batches these automatically.
+      const freshTimelogs = freshTls.flat();
+      // Commit all live state in one synchronous block — React 18 batches these automatically.
       setIssues(issuesRes.issues);
       setEpics(epicsRes.epics);
       setMilestones(milestonesRes.milestones);
       setIssueStatuses(wiRes.statusMap);
-      setTimelogs(freshTls.flat());
+      setTimelogs(freshTimelogs);
+      // Promote to display snapshot — this is the atomic update the charts see
+      setDisplayTimelogs(freshTimelogs);
+      setDisplayIssues(issuesRes.issues);
+      setDisplayEpics(epicsRes.epics);
+      setDisplayMilestones(milestonesRes.milestones);
       setLoadedCount(prev => prev + 4 + TEAM_MEMBERS.length);
       setCacheStatus(() => {
         const next: Record<string, number> = {};
@@ -646,7 +671,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       lastRefreshed,
       autoRefresh,
       refreshIntervalMs: REFRESH_INTERVAL_MS,
-      timelogs,
+      timelogs: displayTimelogs,
       onToggleAutoRefresh: () => setAutoRefresh((prev) => !prev),
       onRefresh: manualRefresh,
       cacheStatus,
@@ -665,7 +690,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   }, [
     lastRefreshed,
     autoRefresh,
-    timelogs,
+    displayTimelogs,
     cacheStatus,
     REFRESH_INTERVAL_MS,
     timeWindow,
@@ -674,7 +699,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     tuOffset,
   ]);
 
-  const filterByWindow = (logs: Timelog[]): Timelog[] => {
+  const filterByWindow = useCallback((logs: Timelog[]): Timelog[] => {
     if (timeWindow === "all") return logs;
     const now = new Date();
     const from =
@@ -692,7 +717,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       const d = new Date(l.spentAt);
       return (!from || d >= from) && d <= to;
     });
-  };
+  }, [timeWindow, customStart, customEnd]);
 
   const processChartData = (timelogs: Timelog[], issues: Issue[]) => {
     // === 1. Piechart (Kategorie-Zeiten gesamt) ===
@@ -1093,15 +1118,18 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     };
   };
 
-  const formatTime = (seconds: number): string => {
+  const formatTime = useCallback((seconds: number): string => {
     const hours = Math.floor(seconds / TIME_CONFIG.SECONDS_PER_HOUR);
     const minutes = Math.floor(
       (seconds % TIME_CONFIG.SECONDS_PER_HOUR) / TIME_CONFIG.SECONDS_PER_MINUTE,
     );
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}h`;
-  };
+  }, []);
 
-  const windowTimelogs = filterByWindow(timelogs);
+  const windowTimelogs = filterByWindow(displayTimelogs);
+  // IssueDashboard is excluded from the display snapshot — it uses live timelogs.
+  // Memoize so filterByWindow isn't called inline in JSX (new ref on every render).
+  const windowLiveTimelogs = useMemo(() => filterByWindow(timelogs), [filterByWindow, timelogs]);
 
   const {
     pieData,
@@ -1121,11 +1149,11 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
           )
         : windowTimelogs,
       selectedCategory
-        ? issues.filter((i) => i.labels?.nodes?.some((l) => l.title === selectedCategory))
-        : issues,
+        ? displayIssues.filter((i) => i.labels?.nodes?.some((l) => l.title === selectedCategory))
+        : displayIssues,
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [windowTimelogs, issues, selectedCategory],
+    [windowTimelogs, displayIssues, selectedCategory],
   );
 
     if (loading || (backgroundRefreshing && !hasEverLoaded.current)) {
@@ -1159,7 +1187,12 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     );
   }
 
-  if (timelogs.length === 0 && hasEverLoaded.current) {
+  const usernameToName = useMemo<Record<string, string>>(
+    () => Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name])),
+    [timelogs],
+  );
+
+    if (timelogs.length === 0 && hasEverLoaded.current) {
     return <div className="alert alert--warning">{ERROR_MESSAGES.NO_DATA}</div>;
   }
 
@@ -1177,7 +1210,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   // Issues active in the current time window (have at least one timelog in the window)
   const windowIssueIds = new Set(windowTimelogs.map((t) => t.issue?.iid).filter(Boolean));
   const windowIssues =
-    timeWindow === "all" ? issues : issues.filter((i) => windowIssueIds.has(i.iid));
+    timeWindow === "all" ? displayIssues : displayIssues.filter((i) => windowIssueIds.has(i.iid));
 
   return (
     <>
@@ -1205,9 +1238,9 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
 
       <ProjectOverview
         projectMetrics={projectMetrics}
-        issues={issues}
+        issues={displayIssues}
         windowTimelogs={windowTimelogs}
-        allTimelogs={timelogs}
+        allTimelogs={displayTimelogs}
         tuOffset={tuOffset}
         timeWindow={timeWindow}
         customStart={customStart}
@@ -1221,46 +1254,46 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         timeWindow={timeWindow}
         customStart={customStart}
         customEnd={customEnd}
-        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
+        usernameToName={usernameToName}
         projectMetrics={projectMetrics}
-        COLORS={[...COLORS.PRIMARY]}
+        COLORS={PRIMARY_COLORS}
         lineData={lineData}
         barData={barData}
-        TEAM_COLORS={[...COLORS.TEAM]}
+        TEAM_COLORS={TEAM_COLORS_STABLE}
       />
 
-      <IssueDashboard issues={issues} epics={epics} milestones={milestones} issueStatuses={issueStatuses} timelogs={windowTimelogs} projectMetrics={projectMetrics} startDate={startDate} endDate={endDate} />
+      <IssueDashboard issues={issues} epics={epics} milestones={milestones} issueStatuses={issueStatuses} timelogs={windowLiveTimelogs} projectMetrics={projectMetrics} startDate={startDate} endDate={endDate} refreshedAt={lastRefreshed?.getTime()} />
 
-      <IssueAnalysis issueComplexityData={issueComplexityData} COLORS={[...COLORS.PRIMARY]} issues={issues} />
+      <IssueAnalysis issueComplexityData={issueComplexityData} COLORS={PRIMARY_COLORS} issues={displayIssues} />
 
       <TimeSeriesCharts
         projectMetrics={projectMetrics}
         lineData={lineData}
         barData={barData}
-        TEAM_COLORS={[...COLORS.TEAM]}
-        COLORS={[...COLORS.PRIMARY]}
-        issues={issues}
-        timelogs={timelogs}
+        TEAM_COLORS={TEAM_COLORS_STABLE}
+        COLORS={PRIMARY_COLORS}
+        issues={displayIssues}
+        timelogs={displayTimelogs}
       />
 
       <TeamAndCategories
         pieData={pieData}
         barData={barData}
-        COLORS={[...COLORS.PRIMARY]}
+        COLORS={PRIMARY_COLORS}
         userLastLogged={userLastLogged}
-        teamMembers={[...TEAM_MEMBERS]}
+        teamMembers={TEAM_MEMBERS_STABLE}
         selectedCategory={selectedCategory}
         onCategorySelect={setSelectedCategory}
         timelogs={windowTimelogs}
-        allTimelogs={timelogs}
-        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
+        allTimelogs={displayTimelogs}
+        usernameToName={usernameToName}
       />
 
       <Leaderboard
-        timelogs={timelogs}
-        issues={issues}
-        teamMembers={[...TEAM_MEMBERS]}
-        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
+        timelogs={displayTimelogs}
+        issues={displayIssues}
+        teamMembers={TEAM_MEMBERS_STABLE}
+        usernameToName={usernameToName}
       />
 
       <ProductivityAnalysis productivityPatterns={productivityPatterns} />
@@ -1268,36 +1301,36 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       <TeamCollaboration
         collaborationData={collaborationData}
         averageTeamMembersData={averageTeamMembersData}
-        COLORS={[...COLORS.PRIMARY]}
+        COLORS={PRIMARY_COLORS}
       />
     </div>
 
     {presentationMode && (
       <PresentationMode
         onClose={() => setPresentationMode(false)}
-        timelogs={timelogs}
+        timelogs={displayTimelogs}
         windowTimelogs={windowTimelogs}
-        issues={issues}
-        epics={epics}
+        issues={displayIssues}
+        epics={displayEpics}
         issueStatuses={issueStatuses}
         formatTime={formatTime}
         projectMetrics={projectMetrics}
         lineData={lineData}
         barData={barData}
         pieData={pieData}
-        COLORS={[...COLORS.PRIMARY]}
-        TEAM_COLORS={[...COLORS.TEAM]}
+        COLORS={PRIMARY_COLORS}
+        TEAM_COLORS={TEAM_COLORS_STABLE}
         userLastLogged={userLastLogged}
-        teamMembers={[...TEAM_MEMBERS]}
+        teamMembers={TEAM_MEMBERS_STABLE}
         selectedCategory={selectedCategory}
         onCategorySelect={setSelectedCategory}
-        usernameToName={Object.fromEntries(timelogs.map(t => [t.user.username, t.user.name]))}
+        usernameToName={usernameToName}
         timeWindow={timeWindow}
         customStart={customStart}
         customEnd={customEnd}
         onSetTimeWindow={(w) => setTimeWindow(w)}
         onSetCustomDates={(start, end) => { setCustomStart(start); setCustomEnd(end); }}
-        milestones={milestones}
+        milestones={displayMilestones}
         startDate={startDate}
         endDate={endDate}
       />

@@ -89,6 +89,7 @@ interface IssueDashboardProps {
     projectMetrics: ProjectMetrics;
     startDate: Date;
     endDate: Date;
+    refreshedAt?: number;
 }
 
 type StateFilter = 'opened' | 'closed' | 'all';
@@ -389,7 +390,7 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
     );
 }
 
-const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, milestones, issueStatuses, defaultExpanded = true, timelogs, projectMetrics, startDate, endDate }) => {
+const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, milestones, issueStatuses, defaultExpanded = true, timelogs, projectMetrics, startDate, endDate, refreshedAt }) => {
     const [viewMode, setViewMode] = useState<'issues' | 'gantt'>('issues');
     const [pxPerDay, setPxPerDay] = useState(28);
     const [ganttStateFilter, setGanttStateFilter] = useState<'opened' | 'closed' | 'all'>('opened');
@@ -813,6 +814,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                     pxPerDay={pxPerDay}
                     ganttStateFilter={ganttStateFilter}
                     issueStatuses={issueStatuses}
+                    refreshedAt={refreshedAt}
                 />
             ) : (
                 <>
