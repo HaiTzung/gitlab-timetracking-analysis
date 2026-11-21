@@ -392,6 +392,7 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
 const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, milestones, issueStatuses, defaultExpanded = true, timelogs, projectMetrics, startDate, endDate }) => {
     const [viewMode, setViewMode] = useState<'issues' | 'gantt'>('issues');
     const [pxPerDay, setPxPerDay] = useState(28);
+    const [ganttStateFilter, setGanttStateFilter] = useState<'opened' | 'closed' | 'all'>('opened');
     const [stateFilter, setStateFilter] = useState<StateFilter>(() => {
         if (typeof window === 'undefined') return 'opened';
         return (localStorage.getItem('issueDashboard.stateFilter') as StateFilter) ?? 'opened';
@@ -539,6 +540,19 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                             >+</button>
                         </div>
                     )}
+                    {/* State filter toggle — only shown in Gantt mode */}
+                    {viewMode === 'gantt' && (
+                        <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
+                            {(['all', 'opened', 'closed'] as const).map(s => (
+                                <button key={s} onClick={() => setGanttStateFilter(s)}
+                                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                                        ganttStateFilter === s ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                    }`}>
+                                    {s === 'opened' ? 'Offen' : s === 'closed' ? 'Geschlossen' : 'Alle'}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {/* Issues / Meilensteine toggle */}
                     <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
                         {(['issues', 'gantt'] as const).map(mode => (
@@ -563,6 +577,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                     stateFilter={stateFilter}
                     assigneeFilter={assigneeFilter}
                     pxPerDay={pxPerDay}
+                    ganttStateFilter={ganttStateFilter}
                 />
             ) : (<>
             {(isKwMode ? catComparisonData.length > 0 : catIssueCounts.length > 0) && (

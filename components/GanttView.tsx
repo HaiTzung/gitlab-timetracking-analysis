@@ -15,6 +15,7 @@ interface GanttViewProps {
     stateFilter: 'opened' | 'closed' | 'all';
     assigneeFilter: string;
     pxPerDay: number;
+    ganttStateFilter: 'opened' | 'closed' | 'all';
 }
 
 type RowKind = 'epic' | 'milestone' | 'issue';
@@ -28,6 +29,8 @@ interface GanttRow {
     barEnd: Date;
     state: string;
     depth: number;
+    assignees?: string[];
+    healthStatus?: string | null;
 }
 
 // Depth-indexed palette for epic bars: depth 0 → deepest blue, deeper → lighter
@@ -68,6 +71,7 @@ const GanttView: React.FC<GanttViewProps> = ({
     stateFilter,
     assigneeFilter,
     pxPerDay,
+    ganttStateFilter,
 }) => {
     // Build epic lookup maps
     const epicByIid = useMemo(() => new Map(epics.map(e => [e.iid, e])), [epics]);
@@ -93,11 +97,11 @@ const GanttView: React.FC<GanttViewProps> = ({
     // Filter issues
     const filteredIssues = useMemo(() =>
         issues.filter(i => {
-            if (stateFilter !== 'all' && i.state !== stateFilter) return false;
+            if (ganttStateFilter !== 'all' && i.state !== ganttStateFilter) return false;
             if (assigneeFilter !== 'all' && !i.assignees?.nodes?.some(a => a.name === assigneeFilter)) return false;
             return true;
         }),
-    [issues, stateFilter, assigneeFilter]);
+    [issues, ganttStateFilter, assigneeFilter]);
 
     // Map issue iid -> parent epic dueDate (for open issues)
     const issueToEpicDue = useMemo(() => {
@@ -189,6 +193,10 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     const timelineEnd = useMemo(() => {
         const dates: Date[] = [globalEnd];
+        // Always include today so the chart never ends before the present
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        dates.push(todayMidnight);
         epics.forEach(e => { if (e.dueDate) dates.push(parseISO(e.dueDate)); });
         milestones.forEach(m => { if (m.dueDate) dates.push(parseISO(m.dueDate)); });
         filteredIssues.forEach(i => {
@@ -199,7 +207,9 @@ const GanttView: React.FC<GanttViewProps> = ({
                 else dates.push(globalEnd);
             }
         });
-        return dates.reduce((a, b) => a > b ? a : b);
+        const max = dates.reduce((a, b) => a > b ? a : b);
+        // Add a 7-day right-side padding so the last bar never sits flush at the edge
+        return addDays(max, 7);
     }, [epics, milestones, filteredIssues, issueToEpicDue, globalEnd]);
 
     const totalDays = Math.max(1, differenceInDays(timelineEnd, timelineStart));
@@ -229,7 +239,7 @@ const GanttView: React.FC<GanttViewProps> = ({
             w = addWeeks(w, 1);
         }
         return result;
-    }, [timelineStart, timelineEnd, tuOffset, totalDays]);
+    }, [timelineStart, timelineEnd, tuOffset, pxPerDay]);
 
     // Month headers — pixel-based
     const months = useMemo(() => {
@@ -241,7 +251,7 @@ const GanttView: React.FC<GanttViewProps> = ({
             const widthPx = days * PX_PER_DAY;
             return { label: format(m, 'MMM yyyy', { locale: de }), offsetPx, widthPx };
         });
-    }, [timelineStart, timelineEnd, totalDays]);
+    }, [timelineStart, timelineEnd, pxPerDay]);
 
     // Today marker — strip time so differenceInDays compares midnight-to-midnight
     const today = new Date();
@@ -276,6 +286,8 @@ const GanttView: React.FC<GanttViewProps> = ({
             barEnd,
             state: issue.state,
             depth,
+            assignees: issue.assignees?.nodes?.map(a => a.name) ?? [],
+            healthStatus: issue.healthStatus ?? null,
         };
     }
 
@@ -357,6 +369,21 @@ const GanttView: React.FC<GanttViewProps> = ({
     const LABEL_WIDTH = 240;
 
     const [tooltip, setTooltip] = useState<{ lines: string[]; x: number; y: number } | null>(null);
+
+    function rowTipLines(row: GanttRow, includeDates: boolean): string[] {
+        const lines: string[] = [row.title];
+        if (includeDates) lines.push(`${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`);
+        if (row.assignees?.length) lines.push(`👤 ${row.assignees.join(', ')}`);
+        if (row.healthStatus) {
+            const label = row.healthStatus === 'on_track' ? '🟢 On track'
+                : row.healthStatus === 'needs_attention' ? '🟡 Needs attention'
+                : row.healthStatus === 'at_risk' ? '🔴 At risk'
+                : row.healthStatus;
+            lines.push(label);
+        }
+        return lines;
+    }
+
     const showTip = useCallback((lines: string[], e: React.MouseEvent) => {
         setTooltip({ lines, x: e.clientX, y: e.clientY });
     }, []);
@@ -386,7 +413,7 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     return (
         <>
-        <div className="flex" style={{ overflow: 'hidden' }}>
+        <div className="flex" style={{ minWidth: 0 }}>
             {/* Sticky label column */}
             <div
                 className="flex-shrink-0 z-30 bg-white dark:bg-gray-900"
@@ -413,7 +440,7 @@ const GanttView: React.FC<GanttViewProps> = ({
                             href={row.webUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onMouseEnter={e => showTip([row.title], e)}
+                            onMouseEnter={e => showTip(rowTipLines(row, false), e)}
                             onMouseMove={moveTip}
                             onMouseLeave={hideTip}
                             className={`truncate hover:underline ${labelColorClass(row.kind, row.depth)}`}
@@ -422,8 +449,8 @@ const GanttView: React.FC<GanttViewProps> = ({
                         </a>
                     </div>
                 ))}
-                {/* Footer spacer */}
-                {showToday && <div style={{ height: 20 }} className="border-r border-gray-200 dark:border-gray-700" />}
+                {/* Footer spacer — always present so label column height matches timeline */}
+                <div style={{ height: 28 }} className="border-t border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800" />
             </div>
 
             {/* Scrollable timeline */}
@@ -509,7 +536,7 @@ const GanttView: React.FC<GanttViewProps> = ({
                                 href={row.webUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                onMouseEnter={e => showTip([row.title, `${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`], e)}
+                                onMouseEnter={e => showTip(rowTipLines(row, true), e)}
                                 onMouseMove={moveTip}
                                 onMouseLeave={hideTip}
                                 className={`absolute top-1/2 -translate-y-1/2 h-8 rounded flex items-center px-2 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state, row.depth)}`}
@@ -522,17 +549,20 @@ const GanttView: React.FC<GanttViewProps> = ({
                         </div>
                     ))}
 
-                    {/* Footer: today label */}
-                    {showToday && (
-                        <div className="relative border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800" style={{ height: 20, width: timelineWidth }}>
-                            <div
-                                className="absolute text-xs text-red-400 font-medium"
-                                style={{ left: todayPx, transform: 'translateX(-50%)' }}
-                            >
-                                Heute
-                            </div>
-                        </div>
-                    )}
+                    {/* Footer: today label — always rendered so it closes the chart cleanly */}
+                    <div className="relative border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800" style={{ height: 28, width: timelineWidth }}>
+                        {showToday && (
+                            <>
+                                <div className="absolute top-0 bottom-0 w-px bg-red-400" style={{ left: todayPx }} />
+                                <div
+                                    className="absolute text-xs text-red-400 font-medium top-1/2 -translate-y-1/2"
+                                    style={{ left: todayPx + 4 }}
+                                >
+                                    Heute
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
