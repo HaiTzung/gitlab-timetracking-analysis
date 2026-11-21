@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Issue, Epic, Milestone, Timelog, ProjectMetrics } from '@/types/dashboard';
-import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG } from '@/config/dashboardConfig';
+import { CATEGORIES, COLORS, DEVIATION_THRESHOLDS, GITLAB_CONFIG, CATEGORY_LABELS } from '@/config/dashboardConfig';
 import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area,
@@ -638,7 +638,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                                     stroke={color}
                                     fill={color}
                                     fillOpacity={0.6}
-                                    name={category}
+                                    name={CATEGORY_LABELS[category] ?? category.replace('category::', '')}
                                 />
                             );
                         })}
@@ -666,7 +666,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                                     stroke={color}
                                     fill={color}
                                     fillOpacity={0.6}
-                                    name={category}
+                                    name={CATEGORY_LABELS[category] ?? category.replace('category::', '')}
                                 />
                             );
                         })}

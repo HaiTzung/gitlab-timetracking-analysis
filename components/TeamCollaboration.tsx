@@ -5,7 +5,7 @@ import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
     ResponsiveContainer, Cell
 } from 'recharts';
-import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS, CHART_LABELS, DISPLAY_CONFIG } from '../config/dashboardConfig';
+import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS, CHART_LABELS, DISPLAY_CONFIG, CATEGORY_LABELS } from '../config/dashboardConfig';
 import { CollaborationData, AverageTeamMembersData } from '@/types/dashboard';
 import { useChartColors } from '@/hooks/useChartColors';
 
@@ -21,6 +21,10 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
     COLORS
 }) => {
     const cc = useChartColors();
+    const prettyTeamData = averageTeamMembersData.map(d => ({
+        ...d,
+        category: CATEGORY_LABELS[d.category] ?? d.category.replace('category::', ''),
+    }));
     return (
         <div id="team-zusammenarbeit" className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow">
             <h2 className="text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">Team Zusammenarbeit</h2>
@@ -53,7 +57,7 @@ const TeamCollaboration: React.FC<TeamCollaborationProps> = ({
                 <div>
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{CHART_TITLES.AVERAGE_TEAM_SIZE}</h4>
                     <ResponsiveContainer width="100%" height={CHART_CONFIG.HEIGHTS.MEDIUM}>
-                        <BarChart data={averageTeamMembersData}>
+                        <BarChart data={prettyTeamData}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis
                                 dataKey="category"

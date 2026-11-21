@@ -5,7 +5,7 @@ import {
     ResponsiveContainer,
     RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from 'recharts';
-import { CHART_CONFIG, CHART_TITLES, CATEGORIES, COLORS as CONFIG_COLORS } from '../config/dashboardConfig';
+import { CHART_CONFIG, CHART_TITLES, CATEGORIES, COLORS as CONFIG_COLORS, CATEGORY_LABELS } from '../config/dashboardConfig';
 import { Timelog } from '@/types/dashboard';
 import { useDashboardContext } from '@/context/DashboardContext';
 import { useChartColors } from '@/hooks/useChartColors';
@@ -13,7 +13,7 @@ import { useChartColors } from '@/hooks/useChartColors';
 const CATEGORY_KEYS = Object.values(CATEGORIES) as string[];
 const CAT_LABELS: Record<string, string> = {
     'category::requirements':      'Req.',
-    'category::architecture':      'Entwurf',
+    'category::architecture':      'Arch.',
     'category::implementation':    'Impl.',
     'category::project-management':'PM',
 };
@@ -89,6 +89,12 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
     const isAllMode = !ctx?.timeWindow || ctx.timeWindow === 'all';
     const cc = useChartColors();
 
+    const prettyPieData = pieData.map(d => ({
+        ...d,
+        name: CATEGORY_LABELS[d.name] ?? d.name.replace('category::', ''),
+        rawName: d.name,
+    }));
+
     const formatLastLogged = (iso: string | null) => {
         if (!iso) return 'Noch keine Buchung';
         const d = new Date(iso);
@@ -150,14 +156,14 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                         <PieChart>
                             <Pie
                                 dataKey="value"
-                                data={pieData}
+                                data={prettyPieData}
                                 outerRadius={100}
                                 label={({ name, value }) => value !== undefined ? `${name}\n${value.toFixed(CHART_CONFIG.DECIMAL_PLACES)}h` : name}
                             >
-                                {pieData.map((entry) => (
+                                {prettyPieData.map((entry) => (
                                     <Cell
-                                        key={`cell-${entry.name}`}
-                                        fill={CONFIG_COLORS.CATEGORY[entry.name as keyof typeof CONFIG_COLORS.CATEGORY] ?? '#94a3b8'}
+                                        key={`cell-${entry.rawName}`}
+                                        fill={CONFIG_COLORS.CATEGORY[entry.rawName as keyof typeof CONFIG_COLORS.CATEGORY] ?? '#94a3b8'}
                                     />
                                 ))}
                             </Pie>
@@ -205,7 +211,7 @@ const TeamAndCategories: React.FC<TeamAndCategoriesProps> = ({
                                             labelStyle={{ fontSize: 11, color: cc.tooltipLabel }}
                                         />
                                     </RadarChart>
-                                    <p className="text-xs font-medium text-gray-700 dark:text-gray-200 text-center leading-tight mt-1">{CAT_LABELS[catKey] ?? catKey}</p>
+                                    <p className="text-xs font-medium text-gray-700 dark:text-gray-200 text-center leading-tight mt-1">{CATEGORY_LABELS[catKey] ?? catKey.replace('category::', '')}</p>
                                     <p className="text-xs text-gray-400 dark:text-gray-500">{total.toFixed(1)}h gesamt</p>
                                 </div>
                             );

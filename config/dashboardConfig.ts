@@ -34,8 +34,8 @@ export const CATEGORY_LIST = Object.values(CATEGORIES);
 
 export const CATEGORY_LABELS: Record<string, string> = {
   [CATEGORIES.REQUIREMENTS_ENGINEERING]: "Requirements Engineering",
-  [CATEGORIES.ENTWURF]: "Entwurf",
-  [CATEGORIES.IMPLEMENTATION_TEST]: "Implementierung & Test",
+  [CATEGORIES.ENTWURF]: "Architektur",
+  [CATEGORIES.IMPLEMENTATION_TEST]: "Implementierung",
   [CATEGORIES.PROJEKTMANAGEMENT]: "Projektmanagement",
 };
 
