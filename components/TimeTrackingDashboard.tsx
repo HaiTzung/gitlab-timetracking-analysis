@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { useDashboardContextSetter, TimeWindow } from "@/context/DashboardContext";
 import {
@@ -67,6 +67,7 @@ interface TimeTrackingDashboardProps {
 }
 
 const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate, endDate }) => {
+  const hasEverLoaded = useRef(false);
   const [timelogs, setTimelogs] = useState<Timelog[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [epics, setEpics] = useState<Epic[]>([]);
@@ -358,7 +359,8 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       );
 
       setIssueStatuses(statusMap);
-      setCacheStatus(prev => ({ ...prev, [`workitem-statuses:${GITLAB_CONFIG.GROUP_PATH}`]: Date.now() }));
+      const wiTs = typeof projectsResp.data?._fetchedAt === 'number' ? projectsResp.data._fetchedAt : Date.now();
+      setCacheStatus(prev => ({ ...prev, [`workitem-statuses:${GITLAB_CONFIG.GROUP_PATH}`]: wiTs }));
     } catch (err) {
       console.error("Error fetching work item statuses:", err);
       // non-fatal: badges just won't show In Progress
@@ -425,17 +427,17 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     }
   };
 
-  const fetchTimelogsForUser = async (username: string, bust = false): Promise<void> => {
+  const fetchTimelogsForUser = async (username: string, bust = false): Promise<Timelog[]> => {
     try {
       let allTimelogs: Timelog[] = [];
       let hasNextPage = true;
       let endCursor: string | null = null;
       let lastResponse: any = null;
+      const _kwStart = new Date(); _kwStart.setHours(0,0,0,0);
+      _kwStart.setDate(_kwStart.getDate() - (_kwStart.getDay() === 0 ? 6 : _kwStart.getDay() - 1));
+      const _isPastOnly = endDate < _kwStart;
 
       while (hasNextPage) {
-        const _kwStart = new Date(); _kwStart.setHours(0,0,0,0);
-        _kwStart.setDate(_kwStart.getDate() - (_kwStart.getDay() === 0 ? 6 : _kwStart.getDay() - 1));
-        const _isPastOnly = endDate < _kwStart;
         const response: any = await axios.post(
           GITLAB_CONFIG.API_URL,
           {
@@ -489,12 +491,12 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       }
 
       console.log(`Total timelogs fetched for ${username}:`, allTimelogs.length);
-      setTimelogs((prev: Timelog[]) => [...prev, ...allTimelogs]);
       setLoadedCount((prev) => prev + 1);
       if (typeof (lastResponse?.data as any)?._fetchedAt === 'number') {
         const tlKey = `timelogs:${username}:${startDate.toISOString().slice(0,10)}:${endDate.toISOString().slice(0,10)}`;
         setCacheStatus(prev => ({ ...prev, [tlKey]: (lastResponse.data as any)._fetchedAt }));
       }
+      return allTimelogs;
     } catch (err) {
       setError(`Error fetching timelogs for user ${username}`);
       console.error(`Error fetching timelogs for user ${username}:`, err);
@@ -511,15 +513,18 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       setEpics([]);
       setMilestones([]);
       setLoadedCount(0);
+      setCacheStatus({});
     }
     try {
-      await Promise.all([
+      const [, , , , ...tlResults] = await Promise.all([
         fetchAllIssues(),
         fetchAllEpics(),
         fetchAllMilestones(),
         fetchWorkItemStatuses(),
         ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
       ]);
+      setTimelogs((tlResults as unknown as Timelog[][]).flat());
+      hasEverLoaded.current = true;
       await fetchIssueNotes();
       setLastRefreshed(new Date());
     } catch {
@@ -534,17 +539,21 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     // Keep existing data visible — fetch fresh data in background, replace on arrival
     setBackgroundRefreshing(true);
     setBgLoaded(0);
+    setLoadedCount(0);
+    setCacheStatus({});
     setError(null);
     const tick = () => setBgLoaded((n) => n + 1);
     try {
-      await Promise.all([
-        fetchAllIssues(true).then(tick),
-        fetchAllEpics(true).then(tick),
-        fetchAllMilestones(true).then(tick),
-        fetchWorkItemStatuses(true).then(tick),
-        ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username, true).then(tick)),
+      const [, , , , ...tlResults] = await Promise.all([
+        fetchAllIssues(true).then(r => { tick(); return r; }),
+        fetchAllEpics(true).then(r => { tick(); return r; }),
+        fetchAllMilestones(true).then(r => { tick(); return r; }),
+        fetchWorkItemStatuses(true).then(r => { tick(); return r; }),
+        ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username, true).then(r => { tick(); return r; })),
       ]);
-      await fetchIssueNotes(true).then(tick);
+      setTimelogs((tlResults as unknown as Timelog[][]).flat());
+      hasEverLoaded.current = true;
+      await fetchIssueNotes(true).then(r => { tick(); return r; });
       setLastRefreshed(new Date());
     } catch {
       setError(ERROR_MESSAGES.LOADING_ERROR);
@@ -559,7 +568,12 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       .then(r => r.json())
       .then(({ entries }) => {
         const hasCache = entries && Object.keys(entries).length > 0;
-        fetchAllData(!hasCache);
+        if (hasCache) {
+          // Show cached data instantly, then fetch fresh from GitLab in background
+          fetchAllData(false).then(() => manualRefresh());
+        } else {
+          fetchAllData(true);
+        }
       })
       .catch(() => fetchAllData(true));
   }, [startDate, endDate]);
@@ -1033,7 +1047,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}h`;
   };
 
-  if (loading && !backgroundRefreshing) {
+  if (loading || (backgroundRefreshing && !hasEverLoaded.current)) {
     const percent = Math.round((loadedCount / totalFetchCount) * 100);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50 dark:bg-gray-950">
@@ -1064,7 +1078,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     );
   }
 
-  if (timelogs.length === 0) {
+  if (timelogs.length === 0 && hasEverLoaded.current) {
     return <div className="alert alert--warning">{ERROR_MESSAGES.NO_DATA}</div>;
   }
 

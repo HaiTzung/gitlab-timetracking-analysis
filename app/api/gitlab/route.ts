@@ -36,12 +36,12 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
+    const fetchedAt = Date.now();
 
     if (response.ok && cacheKey) {
         const resolvedTtl = ttlMs ?? TTL.DEFAULT;
-        setCached(cacheKey, data, resolvedTtl);
+        setCached(cacheKey, data, resolvedTtl, fetchedAt);
     }
 
-    const fetchedAt = Date.now();
     return NextResponse.json({ ...data, _fetchedAt: fetchedAt, _fromCache: false }, { status: response.status });
 }

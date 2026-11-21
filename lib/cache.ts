@@ -28,8 +28,8 @@ export function getCached(key: string): { data: unknown; fetchedAt: number } | n
     return { data: entry.data, fetchedAt: entry.fetchedAt };
 }
 
-export function setCached(key: string, data: unknown, ttlMs: number): void {
-    store.set(key, { data, fetchedAt: Date.now(), ttlMs });
+export function setCached(key: string, data: unknown, ttlMs: number, fetchedAt = Date.now()): void {
+    store.set(key, { data, fetchedAt, ttlMs });
 }
 
 export function bustCache(key?: string): void {

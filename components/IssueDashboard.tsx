@@ -390,29 +390,24 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
 }
 
 const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, milestones, issueStatuses, defaultExpanded = true, timelogs, projectMetrics, startDate, endDate }) => {
-    const [viewMode, setViewMode] = useState<'issues' | 'gantt'>(() => {
-        if (typeof window === 'undefined') return 'issues';
-        return (localStorage.getItem('issueDashboard.viewMode') as 'issues' | 'gantt') ?? 'issues';
-    });
+    const [viewMode, setViewMode] = useState<'issues' | 'gantt'>('issues');
     const [pxPerDay, setPxPerDay] = useState(28);
     const [ganttStateFilter, setGanttStateFilter] = useState<'opened' | 'closed' | 'all'>('opened');
-    const [stateFilter, setStateFilter] = useState<StateFilter>(() => {
-        if (typeof window === 'undefined') return 'opened';
-        return (localStorage.getItem('issueDashboard.stateFilter') as StateFilter) ?? 'opened';
-    });
-    const [assigneeFilter, setAssigneeFilter] = useState<string>(() => {
-        if (typeof window === 'undefined') return 'all';
-        return localStorage.getItem('issueDashboard.assigneeFilter') ?? 'all';
-    });
+    const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
+    const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+
+    useEffect(() => {
+        setViewMode((localStorage.getItem('issueDashboard.viewMode') as 'issues' | 'gantt') ?? 'issues');
+        setStateFilter((localStorage.getItem('issueDashboard.stateFilter') as StateFilter) ?? 'opened');
+        setAssigneeFilter(localStorage.getItem('issueDashboard.assigneeFilter') ?? 'all');
+        setHideEmptyEpics(localStorage.getItem('issueDashboard.hideEmptyEpics') === 'true');
+    }, []);
 
     useEffect(() => { localStorage.setItem('issueDashboard.stateFilter', stateFilter); }, [stateFilter]);
     useEffect(() => { localStorage.setItem('issueDashboard.assigneeFilter', assigneeFilter); }, [assigneeFilter]);
     useEffect(() => { localStorage.setItem('issueDashboard.viewMode', viewMode); }, [viewMode]);
 
-    const [hideEmptyEpics, setHideEmptyEpics] = useState<boolean>(() => {
-        if (typeof window === 'undefined') return false;
-        return localStorage.getItem('issueDashboard.hideEmptyEpics') === 'true';
-    });
+    const [hideEmptyEpics, setHideEmptyEpics] = useState<boolean>(false);
     useEffect(() => { localStorage.setItem('issueDashboard.hideEmptyEpics', String(hideEmptyEpics)); }, [hideEmptyEpics]);
     const { resolvedTheme } = useTheme();
     const dark = resolvedTheme === 'dark';
