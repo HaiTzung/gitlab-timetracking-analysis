@@ -390,7 +390,10 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
 }
 
 const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, milestones, issueStatuses, defaultExpanded = true, timelogs, projectMetrics, startDate, endDate }) => {
-    const [viewMode, setViewMode] = useState<'issues' | 'gantt'>('issues');
+    const [viewMode, setViewMode] = useState<'issues' | 'gantt'>(() => {
+        if (typeof window === 'undefined') return 'issues';
+        return (localStorage.getItem('issueDashboard.viewMode') as 'issues' | 'gantt') ?? 'issues';
+    });
     const [pxPerDay, setPxPerDay] = useState(28);
     const [ganttStateFilter, setGanttStateFilter] = useState<'opened' | 'closed' | 'all'>('opened');
     const [stateFilter, setStateFilter] = useState<StateFilter>(() => {
@@ -404,6 +407,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
 
     useEffect(() => { localStorage.setItem('issueDashboard.stateFilter', stateFilter); }, [stateFilter]);
     useEffect(() => { localStorage.setItem('issueDashboard.assigneeFilter', assigneeFilter); }, [assigneeFilter]);
+    useEffect(() => { localStorage.setItem('issueDashboard.viewMode', viewMode); }, [viewMode]);
 
     const [hideEmptyEpics, setHideEmptyEpics] = useState<boolean>(() => {
         if (typeof window === 'undefined') return false;

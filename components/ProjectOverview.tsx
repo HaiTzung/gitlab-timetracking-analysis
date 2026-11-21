@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { CHART_CONFIG, KPI_LABELS } from '../config/dashboardConfig';
+import React, { useState, useMemo } from 'react';
+import { CHART_CONFIG, KPI_LABELS, CATEGORY_LABELS } from '../config/dashboardConfig';
 import { ProjectMetrics, Issue, Timelog } from '@/types/dashboard';
 import { TimeWindow } from '@/context/DashboardContext';
+import { startOfWeek, addDays } from 'date-fns';
 
 interface ProjectOverviewProps {
     projectMetrics: ProjectMetrics;
     issues: Issue[];
     windowTimelogs: Timelog[];
+    allTimelogs: Timelog[];
+    tuOffset: boolean;
     timeWindow: TimeWindow;
     customStart: Date | null;
     customEnd: Date | null;
@@ -74,7 +77,7 @@ const WARNINGS: Array<Omit<Warning, 'issues'> & { filter: (issues: Issue[]) => I
     },
 ];
 
-const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issues, windowTimelogs, timeWindow, customStart, customEnd }) => {
+const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issues, windowTimelogs, allTimelogs, tuOffset, timeWindow, customStart, customEnd }) => {
     const [rootOpen, setRootOpen] = useState(false);
     const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
@@ -90,6 +93,51 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
     const kwAvgCloseTime = kwClosedIssues.length > 0
         ? kwClosedIssues.reduce((s, i) => s + i.totalTimeSpent, 0) / kwClosedIssues.length / 3600
         : 0;
+
+    const trendData = useMemo(() => {
+        const today = new Date();
+        const monAnchor = startOfWeek(today, { weekStartsOn: 1 });
+        const prevMonAnchor = addDays(monAnchor, -7);
+
+        const kwBounds = (anchor: Date) => ({
+            start: tuOffset ? addDays(anchor, 1) : anchor,
+            end:   tuOffset ? new Date(new Date(addDays(anchor, 7)).setHours(23, 59, 59, 0)) : new Date(new Date(addDays(anchor, 7)).setHours(0, 0, 0, 0)),
+        });
+
+        const curr = kwBounds(monAnchor);
+        const prev = kwBounds(prevMonAnchor);
+
+        const inRange = (dateStr: string, b: { start: Date; end: Date }) => {
+            const d = new Date(dateStr);
+            return d >= b.start && d <= b.end;
+        };
+
+        const currLogs = allTimelogs.filter(t => inRange(t.spentAt, curr));
+        const prevLogs = allTimelogs.filter(t => inRange(t.spentAt, prev));
+
+        const currHours = currLogs.reduce((s, t) => s + t.timeSpent / 3600, 0);
+        const prevHours = prevLogs.reduce((s, t) => s + t.timeSpent / 3600, 0);
+
+        const currClosed = issues.filter(i => i.closedAt && inRange(i.closedAt, curr)).length;
+        const prevClosed = issues.filter(i => i.closedAt && inRange(i.closedAt, prev)).length;
+
+        const pct = (c: number, p: number) =>
+            p === 0 ? null : Math.round(((c - p) / p) * 100);
+
+        const lastLog = allTimelogs.length
+            ? allTimelogs.reduce((a, b) => (a.spentAt > b.spentAt ? a : b))
+            : null;
+        const daysSince = lastLog
+            ? Math.floor((Date.now() - new Date(lastLog.spentAt).getTime()) / 86400000)
+            : null;
+
+        return {
+            currHours, prevHours, hoursPct: pct(currHours, prevHours),
+            currEvents: currLogs.length, prevEvents: prevLogs.length, eventsPct: pct(currLogs.length, prevLogs.length),
+            currClosed, prevClosed, closedPct: pct(currClosed, prevClosed),
+            daysSince,
+        };
+    }, [allTimelogs, issues, tuOffset]);
 
     const warnings: Warning[] = WARNINGS
         .map(({ filter, ...rest }) => ({ ...rest, issues: filter(issues) }))
@@ -222,7 +270,7 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
                         return (
                             <>
                                 <p className="text-2xl font-bold text-green-900 dark:text-green-200">
-                                    {mainCategory.category}
+                                    {CATEGORY_LABELS[mainCategory.category] ?? mainCategory.category.replace('category::', '')}
                                 </p>
                                 <p className="text-sm text-green-600 dark:text-green-400 mt-auto">
                                     {mainCategory.hours.toFixed(CHART_CONFIG.DECIMAL_PLACES)}{isKwMode ? 'h diese Woche' : KPI_LABELS.HOURS_PER_WEEK}
@@ -303,6 +351,86 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
                     )}
                 </div>
             </div>
+
+            {/* Trends section */}
+            {(() => {
+                const TrendBadge = ({ pct }: { pct: number | null }) => {
+                    if (pct === null) return null;
+                    const up = pct >= 0;
+                    return (
+                        <span className={`text-sm font-semibold ${up ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                            {up ? '↑' : '↓'}{Math.abs(pct)}%
+                        </span>
+                    );
+                };
+                const tiles = [
+                    {
+                        label: 'Zeitaufwand',
+                        value: `${trendData.currHours.toFixed(1)}h`,
+                        pct: trendData.hoursPct,
+                        hint: `Vorwoche: ${trendData.prevHours.toFixed(1)}h`,
+                        bg: 'bg-blue-50 dark:bg-blue-950',
+                        labelCls: 'text-blue-800 dark:text-blue-300',
+                        valueCls: 'text-blue-900 dark:text-blue-200',
+                        hintCls: 'text-blue-600 dark:text-blue-400',
+                    },
+                    {
+                        label: 'Buchungsereignisse',
+                        value: String(trendData.currEvents),
+                        pct: trendData.eventsPct,
+                        hint: `Vorwoche: ${trendData.prevEvents}`,
+                        bg: 'bg-indigo-50 dark:bg-indigo-950',
+                        labelCls: 'text-indigo-800 dark:text-indigo-300',
+                        valueCls: 'text-indigo-900 dark:text-indigo-200',
+                        hintCls: 'text-indigo-600 dark:text-indigo-400',
+                    },
+                    {
+                        label: 'Geschlossene Issues',
+                        value: String(trendData.currClosed),
+                        pct: trendData.closedPct,
+                        hint: `Vorwoche: ${trendData.prevClosed}`,
+                        bg: 'bg-emerald-50 dark:bg-emerald-950',
+                        labelCls: 'text-emerald-800 dark:text-emerald-300',
+                        valueCls: 'text-emerald-900 dark:text-emerald-200',
+                        hintCls: 'text-emerald-600 dark:text-emerald-400',
+                    },
+                    {
+                        label: 'Letzte Aktivität',
+                        value: trendData.daysSince === null ? '–' : trendData.daysSince === 0 ? 'Heute' : `${trendData.daysSince}d`,
+                        pct: null as number | null,
+                        hint: trendData.daysSince !== null && trendData.daysSince > 3 ? 'Keine aktuelle Buchung' : 'Zuletzt aktiv',
+                        bg: trendData.daysSince !== null && trendData.daysSince > 3
+                            ? 'bg-amber-50 dark:bg-amber-950'
+                            : 'bg-orange-50 dark:bg-orange-950',
+                        labelCls: trendData.daysSince !== null && trendData.daysSince > 3
+                            ? 'text-amber-800 dark:text-amber-300'
+                            : 'text-orange-800 dark:text-orange-300',
+                        valueCls: trendData.daysSince !== null && trendData.daysSince > 3
+                            ? 'text-amber-900 dark:text-amber-200'
+                            : 'text-orange-900 dark:text-orange-200',
+                        hintCls: trendData.daysSince !== null && trendData.daysSince > 3
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-orange-600 dark:text-orange-400',
+                    },
+                ];
+                return (
+                    <div className="mt-4">
+                        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Trends diese Woche</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {tiles.map(tile => (
+                                <div key={tile.label} className={`${tile.bg} p-4 rounded-lg flex flex-col`}>
+                                    <h4 className={`text-sm font-medium ${tile.labelCls} mb-2`}>{tile.label}</h4>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <p className={`text-2xl font-bold ${tile.valueCls}`}>{tile.value}</p>
+                                        <TrendBadge pct={tile.pct} />
+                                    </div>
+                                    <p className={`text-sm ${tile.hintCls} mt-auto`}>{tile.hint}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };

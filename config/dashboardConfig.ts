@@ -32,6 +32,13 @@ export const CATEGORY_MAP = {
 
 export const CATEGORY_LIST = Object.values(CATEGORIES);
 
+export const CATEGORY_LABELS: Record<string, string> = {
+  [CATEGORIES.REQUIREMENTS_ENGINEERING]: "Requirements Engineering",
+  [CATEGORIES.ENTWURF]: "Entwurf",
+  [CATEGORIES.IMPLEMENTATION_TEST]: "Implementierung & Test",
+  [CATEGORIES.PROJEKTMANAGEMENT]: "Projektmanagement",
+};
+
 // Color Schemes
 export const COLORS = {
   PRIMARY: ["#e53935", "#f57c00", "#2e7d32", "#29b6f6"],
