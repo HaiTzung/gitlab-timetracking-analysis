@@ -543,128 +543,11 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
     return (
         <div id="issue-zeitanalyse" className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div className="flex items-center mb-6">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Issues</h2>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                    {issueSummary.inProgress > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
-                            {issueSummary.inProgress} in Bearbeitung
-                        </span>
-                    )}
-                    {issueSummary.onTrack > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 rounded px-1.5 py-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
-                            {issueSummary.onTrack} on track
-                        </span>
-                    )}
-                    {issueSummary.needsAttention > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800 rounded px-1.5 py-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0" />
-                            {issueSummary.needsAttention} needs attention
-                        </span>
-                    )}
-                    {issueSummary.atRisk > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
-                            {issueSummary.atRisk} at risk
-                        </span>
-                    )}
-                    {issueSummary.overdue > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">
-                            <svg className="flex-shrink-0" width="10" height="10" viewBox="0 0 14 14" fill="none">
-                                <circle cx="7" cy="7" r="6.5" fill="#ef4444" stroke="white" strokeWidth="1" />
-                                <rect x="6.1" y="3.2" width="1.8" height="4.4" rx="0.9" fill="white" />
-                                <circle cx="7" cy="10.2" r="1" fill="white" />
-                            </svg>
-                            {issueSummary.overdue} überfällig
-                        </span>
-                    )}
-                </div>
-                <div className="flex items-center gap-3 flex-1 justify-end flex-wrap">
-                    {/* Zoom slider — only shown in Gantt mode */}
-                    {viewMode === 'gantt' && (
-                        <div className="flex items-center gap-1.5">
-                            <button
-                                onClick={() => setPxPerDay(p => Math.max(4, Math.round(p / 1.4)))}
-                                className="w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold leading-none transition-colors"
-                                title="Herauszoomen"
-                            >−</button>
-                            <input
-                                type="range"
-                                min={4}
-                                max={120}
-                                step={1}
-                                value={pxPerDay}
-                                onChange={e => setPxPerDay(Number(e.target.value))}
-                                className="w-28 accent-blue-400 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
-                            />
-                            <button
-                                onClick={() => setPxPerDay(p => Math.min(120, Math.round(p * 1.4)))}
-                                className="w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold leading-none transition-colors"
-                                title="Hineinzoomen"
-                            >+</button>
-                        </div>
-                    )}
-                    {/* State filter toggle — only shown in Gantt mode */}
-                    {viewMode === 'gantt' && (
-                        <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
-                            {(['all', 'opened', 'closed'] as const).map(s => (
-                                <button key={s} onClick={() => setGanttStateFilter(s)}
-                                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                                        ganttStateFilter === s ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                                    }`}>
-                                    {s === 'opened' ? 'Offen' : s === 'closed' ? 'Geschlossen' : 'Alle'}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                    {/* Assignee filter — only shown in Gantt mode */}
-                    {viewMode === 'gantt' && allAssignees.length > 0 && (
-                        <div className="relative">
-                            <select
-                                value={assigneeFilter}
-                                onChange={e => setAssigneeFilter(e.target.value)}
-                                className="appearance-none border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 pl-2.5 pr-6 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="all">Alle Personen</option>
-                                {allAssignees.map(name => (
-                                    <option key={name} value={name}>{name}</option>
-                                ))}
-                            </select>
-                            <svg className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400" width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M2 4l4 4 4-4" />
-                            </svg>
-                        </div>
-                    )}
-                    {/* Issues / Meilensteine toggle */}
-                    <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
-                        {(['issues', 'gantt'] as const).map(mode => (
-                            <button key={mode} onClick={() => setViewMode(mode)}
-                                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                                    viewMode === mode ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                                }`}>
-                                {mode === 'issues' ? 'Issues' : 'Meilensteine'}
-                            </button>
-                        ))}
-                    </div>
-                </div>
             </div>
 
-            {viewMode === 'gantt' ? (
-                <GanttView
-                    epics={epics}
-                    milestones={milestones}
-                    issues={issues}
-                    globalStart={startDate}
-                    globalEnd={endDate}
-                    stateFilter={stateFilter}
-                    assigneeFilter={assigneeFilter}
-                    pxPerDay={pxPerDay}
-                    ganttStateFilter={ganttStateFilter}
-                    issueStatuses={issueStatuses}
-                />
-            ) : (<>
+                        {/* Charts — always visible */}
             {(isKwMode ? catComparisonData.length > 0 : catIssueCounts.length > 0) && (
                 <div className="mb-8">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Issues pro Kategorie — Offen vs. Geschlossen</h4>
@@ -789,9 +672,67 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
             </div>
             )}
 
-            {/* Toggle + count — only controls the issue tree below */}
+     
+            {/* Summary badges + view toggle */}
+            <div className="flex items-center justify-between mt-6 mb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                        {viewMode === 'issues' ? 'Issue Board' : 'Gantt Diagramm'}
+                    </h3>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                    {issueSummary.inProgress > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />
+                            {issueSummary.inProgress} in Bearbeitung
+                        </span>
+                    )}
+                    {issueSummary.onTrack > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                            {issueSummary.onTrack} on track
+                        </span>
+                    )}
+                    {issueSummary.needsAttention > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0" />
+                            {issueSummary.needsAttention} needs attention
+                        </span>
+                    )}
+                    {issueSummary.atRisk > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+                            {issueSummary.atRisk} at risk
+                        </span>
+                    )}
+                    {issueSummary.overdue > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded px-1.5 py-0.5">
+                            <svg className="flex-shrink-0" width="10" height="10" viewBox="0 0 14 14" fill="none">
+                                <circle cx="7" cy="7" r="6.5" fill="#ef4444" stroke="white" strokeWidth="1" />
+                                <rect x="6.1" y="3.2" width="1.8" height="4.4" rx="0.9" fill="white" />
+                                <circle cx="7" cy="10.2" r="1" fill="white" />
+                            </svg>
+                            {issueSummary.overdue} überfällig
+                        </span>
+                    )}
+                    </div>
+                </div>
+                {/* Issues / Meilensteine toggle */}
+                <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
+                    {(['issues', 'gantt'] as const).map(mode => (
+                        <button key={mode} onClick={() => setViewMode(mode)}
+                            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                                viewMode === mode ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                            }`}>
+                            {mode === 'issues' ? 'Issues' : 'Meilensteine'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+                        {/* Controls row — always visible, before the swappable section */}
             <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
+                    {viewMode === 'issues' && (
                     <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
                         {(['all', 'opened', 'closed'] as StateFilter[]).map(s => (
                             <button key={s} onClick={() => setStateFilter(s)}
@@ -802,15 +743,39 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                             </button>
                         ))}
                     </div>
+                    )}
+                    {/* Gantt-only: state filter + zoom */}
+                    {viewMode === 'gantt' && (
+                        <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
+                            {(['all', 'opened', 'closed'] as const).map(s => (
+                                <button key={s} onClick={() => setGanttStateFilter(s)}
+                                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                                        ganttStateFilter === s ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                                    }`}>
+                                    {s === 'opened' ? 'Offen' : s === 'closed' ? 'Geschlossen' : 'Alle'}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {viewMode === 'gantt' && (
+                        <div className="flex items-center gap-1.5">
+                            <button onClick={() => setPxPerDay(p => Math.max(4, Math.round(p / 1.4)))}
+                                className="w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold leading-none transition-colors"
+                                title="Herauszoomen">−</button>
+                            <input type="range" min={4} max={120} step={1} value={pxPerDay}
+                                onChange={e => setPxPerDay(Number(e.target.value))}
+                                className="w-28 accent-blue-400 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" />
+                            <button onClick={() => setPxPerDay(p => Math.min(120, Math.round(p * 1.4)))}
+                                className="w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold leading-none transition-colors"
+                                title="Hineinzoomen">+</button>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {allAssignees.length > 0 && (
                         <div className="relative">
-                            <select
-                                value={assigneeFilter}
-                                onChange={e => setAssigneeFilter(e.target.value)}
-                                className="appearance-none border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 pl-2.5 pr-6 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
+                            <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}
+                                className="appearance-none border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 pl-2.5 pr-6 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="all">Alle Personen</option>
                                 {allAssignees.map(name => (
                                     <option key={name} value={name}>{name}</option>
@@ -821,44 +786,63 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                             </svg>
                         </div>
                     )}
-                    <button
-                        onClick={() => setHideEmptyEpics(v => !v)}
-                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
-                            hideEmptyEpics
-                                ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300'
-                                : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                        }`}
-                    >
-                        Leere Epics ausblenden
-                    </button>
+                    {viewMode === 'issues' && (
+                        <button
+                            onClick={() => setHideEmptyEpics(v => !v)}
+                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+                                hideEmptyEpics
+                                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                                    : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                            }`}
+                        >
+                            Leere Epics ausblenden
+                        </button>
+                    )}
                 </div>
-            </div>
-            <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
-                <span className="w-2 flex-shrink-0" />
-                <span className="w-10 flex-shrink-0">#</span>
-                <span className="flex-1">Titel</span>
-                <span className="hidden lg:block flex-shrink-0 w-32">Kategorie</span>
-                <span className="hidden sm:block flex-shrink-0 w-20 text-right">Est / Ist</span>
-                <span className="hidden md:block flex-shrink-0 w-16 text-right">Abw.</span>
-                <span className="flex-shrink-0 w-16 text-right">Wer</span>
             </div>
 
-            {filteredIssues.length === 0 ? (
-                <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">Keine Issues gefunden</div>
+            {/* Swappable section: Issue tree or Gantt */}
+            {viewMode === 'gantt' ? (
+                <GanttView
+                    epics={epics}
+                    milestones={milestones}
+                    issues={issues}
+                    globalStart={startDate}
+                    globalEnd={endDate}
+                    stateFilter={stateFilter}
+                    assigneeFilter={assigneeFilter}
+                    pxPerDay={pxPerDay}
+                    ganttStateFilter={ganttStateFilter}
+                    issueStatuses={issueStatuses}
+                />
             ) : (
-                <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {(hideEmptyEpics
-                        ? rootEpics.filter(e => epicHasVisibleContent(e.iid, epicIssuesFiltered, childEpics))
-                        : rootEpics
-                    ).map(epic => (
-                        <EpicNode key={epic.iid} epic={epic} childEpics={childEpics}
-                            epicIssues={epicIssuesFiltered} allEpics={epics} allIssues={filteredIssues}
-                            depth={0} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} hideEmptyEpics={hideEmptyEpics} />
-                    ))}
-                    {orphanIssues.length > 0 && <OrphanGroup issues={orphanIssues} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />}
+                <>
+                <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
+                    <span className="w-2 flex-shrink-0" />
+                    <span className="w-10 flex-shrink-0">#</span>
+                    <span className="flex-1">Titel</span>
+                    <span className="hidden lg:block flex-shrink-0 w-32">Kategorie</span>
+                    <span className="hidden sm:block flex-shrink-0 w-20 text-right">Est / Ist</span>
+                    <span className="hidden md:block flex-shrink-0 w-16 text-right">Abw.</span>
+                    <span className="flex-shrink-0 w-16 text-right">Wer</span>
                 </div>
+                {filteredIssues.length === 0 ? (
+                    <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">Keine Issues gefunden</div>
+                ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {(hideEmptyEpics
+                            ? rootEpics.filter(e => epicHasVisibleContent(e.iid, epicIssuesFiltered, childEpics))
+                            : rootEpics
+                        ).map(epic => (
+                            <EpicNode key={epic.iid} epic={epic} childEpics={childEpics}
+                                epicIssues={epicIssuesFiltered} allEpics={epics} allIssues={filteredIssues}
+                                depth={0} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} hideEmptyEpics={hideEmptyEpics} />
+                        ))}
+                        {orphanIssues.length > 0 && <OrphanGroup issues={orphanIssues} issueStatuses={issueStatuses} defaultExpanded={defaultExpanded} />}
+                    </div>
+                )}
+                </>
             )}
-            </>)}
 
             {/* Analytics */}
         </div>
