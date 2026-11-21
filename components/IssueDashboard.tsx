@@ -44,7 +44,7 @@ function buildCategoryIssueCount(issues: Issue[]) {
     return CATEGORY_VALUES.map(cat => {
         const catIssues = issues.filter(i => getMainCategory(i) === cat);
         return {
-            category: cat.replace('category::', ''),
+            category: CATEGORY_LABELS[cat] ?? cat.replace('category::', ''),
             opened: catIssues.filter(i => i.state === 'opened').length,
             closed: catIssues.filter(i => i.state === 'closed').length,
             total: catIssues.length,
@@ -58,7 +58,7 @@ function buildCategoryIssueCountForWeek(issues: Issue[], weekStart: Date, weekEn
     return (Object.values(CATEGORIES) as string[]).map(cat => {
         const catIssues = issues.filter(i => getMainCategory(i) === cat);
         return {
-            category: cat.replace('category::', ''),
+            category: CATEGORY_LABELS[cat] ?? cat.replace('category::', ''),
             opened: catIssues.filter(i => { const d = parseISO(i.createdAt); return d >= weekStart && d <= weekEnd; }).length,
             closed: catIssues.filter(i => { if (!i.closedAt) return false; const d = parseISO(i.closedAt); return d >= weekStart && d <= weekEnd; }).length,
         };
@@ -203,7 +203,7 @@ function IssueRow({ issue, depth = 0, issueStatuses }: { issue: Issue; depth?: n
                 {stateBadge(issue.state, issueStatuses.get(issue.iid))}
                 {category && (
                     <span className="hidden lg:inline-flex flex-shrink-0 text-xs bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-300 border border-purple-100 dark:border-purple-800 rounded px-1.5 py-0.5 truncate max-w-32">
-                        {category.replace('category::', '')}
+                        {CATEGORY_LABELS[category] ?? category.replace('category::', '')}
                     </span>
                 )}
                 <div className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500 w-20 text-right hidden sm:block">

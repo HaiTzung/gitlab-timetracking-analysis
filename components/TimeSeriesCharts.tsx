@@ -5,7 +5,7 @@ import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
     ResponsiveContainer, Line, LineChart, Area, AreaChart, ReferenceLine
 } from 'recharts';
-import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS, CATEGORIES, COLORS } from '../config/dashboardConfig';
+import { CHART_CONFIG, CHART_TITLES, TOOLTIP_LABELS, CATEGORIES, COLORS, CATEGORY_LABELS } from '../config/dashboardConfig';
 import { Issue, ProjectMetrics, Timelog } from '@/types/dashboard';
 import {
     format, differenceInDays, eachWeekOfInterval, parseISO, startOfWeek, addDays, isSameDay, endOfWeek,
@@ -55,7 +55,7 @@ function buildSpentByCategory(timelogs: Timelog[]) {
         const weekStart = startOfWeek(parseISO(log.spentAt), { weekStartsOn: 1 });
         const weekKey = format(weekStart, "'KW' II/yy", { locale: de });
         const raw = log.issue?.labels?.nodes?.find(l => CATEGORY_VALUES.includes(l.title))?.title ?? '';
-        const cat = raw.replace('category::', '') || 'Sonstige';
+        const cat = raw ? (CATEGORY_LABELS[raw] ?? raw.replace('category::', '')) : 'Sonstige';
         if (!byWeek.has(weekKey)) byWeek.set(weekKey, {});
         const row = byWeek.get(weekKey)!;
         row[cat] = (row[cat] ?? 0) + log.timeSpent / 3600;
@@ -72,7 +72,7 @@ function buildSpentByCategory(timelogs: Timelog[]) {
         })
         .map(([week, values]) => ({ week, ...values }));
 
-    const allCats = [...Object.values(CATEGORIES).map(c => c.replace('category::', '')), 'Sonstige'];
+    const allCats = [...Object.values(CATEGORIES).map(c => CATEGORY_LABELS[c] ?? c.replace('category::', '')), 'Sonstige'];
     const categories = allCats.filter(c => data.some(d => (d as Record<string, unknown>)[c]));
     return { data, categories };
 }
@@ -94,7 +94,8 @@ function buildCycleTime(issues: Issue[]) {
     const closed = issues.filter(i => i.state === 'closed' && i.closedAt && i.createdAt);
     const byCategory: Record<string, number[]> = {};
     closed.forEach(i => {
-        const cat = getMainCategory(i).replace('category::', '') || 'Sonstige';
+        const raw = getMainCategory(i);
+        const cat = (CATEGORY_LABELS[raw] ?? raw.replace('category::', '')) || 'Sonstige';
         const days = differenceInDays(parseISO(i.closedAt!), parseISO(i.createdAt));
         if (!byCategory[cat]) byCategory[cat] = [];
         byCategory[cat].push(days);
@@ -110,7 +111,7 @@ function buildCategoryIssueCount(issues: Issue[]) {
     return CATEGORY_VALUES.map(cat => {
         const catIssues = issues.filter(i => getMainCategory(i) === cat);
         return {
-            category: cat.replace('category::', ''),
+            category: CATEGORY_LABELS[cat] ?? cat.replace('category::', ''),
             opened: catIssues.filter(i => i.state === 'opened').length,
             closed: catIssues.filter(i => i.state === 'closed').length,
             total: catIssues.length,

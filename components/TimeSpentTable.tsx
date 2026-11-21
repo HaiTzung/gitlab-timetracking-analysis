@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Timelog } from '@/types/dashboard';
-import { CATEGORIES, COLORS } from '@/config/dashboardConfig';
+import { CATEGORIES, COLORS, CATEGORY_LABELS } from '@/config/dashboardConfig';
 import { useDashboardContext } from '@/context/DashboardContext';
 
 interface TimeSpentTableProps {
@@ -12,6 +12,10 @@ interface TimeSpentTableProps {
 }
 
 const CATEGORY_VALUES = Object.values(CATEGORIES) as string[];
+const PRETTY_TO_RAW = new Map(CATEGORY_VALUES.map(raw => [
+    CATEGORY_LABELS[raw] ?? raw.replace('category::', ''),
+    raw,
+]));
 
 function buildMatrix(logs: Timelog[], allUsers: string[]) {
     const data = new Map<string, Map<string, number>>();
@@ -19,7 +23,7 @@ function buildMatrix(logs: Timelog[], allUsers: string[]) {
     logs.forEach(log => {
         const userName = log.user.name;
         const rawCat = log.issue?.labels?.nodes?.find(l => CATEGORY_VALUES.includes(l.title))?.title ?? '';
-        const cat = rawCat.replace('category::', '') || 'Sonstige';
+        const cat = rawCat ? (CATEGORY_LABELS[rawCat] ?? rawCat.replace('category::', '')) : 'Sonstige';
         const hours = log.timeSpent / 3600;
 
         if (!data.has(userName)) data.set(userName, new Map());
@@ -28,7 +32,7 @@ function buildMatrix(logs: Timelog[], allUsers: string[]) {
     });
 
     const users = [...new Set([...allUsers, ...data.keys()])].sort();
-    const allCats = [...Object.values(CATEGORIES).map(c => c.replace('category::', '')), 'Sonstige'];
+    const allCats = [...Object.values(CATEGORIES).map(c => CATEGORY_LABELS[c] ?? c.replace('category::', '')), 'Sonstige'];
     const categories = allCats.filter(cat => [...data.values()].some(row => row.has(cat)));
 
     const rowTotals = new Map(users.map(u => [
@@ -48,8 +52,8 @@ function fmt(hours: number): string {
     return hours.toFixed(1) + 'h';
 }
 
-function getCatColor(strippedCat: string): string {
-    const fullKey = `category::${strippedCat}` as keyof typeof COLORS.CATEGORY;
+function getCatColor(prettyCat: string): string {
+    const fullKey = (PRETTY_TO_RAW.get(prettyCat) ?? `category::${prettyCat}`) as keyof typeof COLORS.CATEGORY;
     return COLORS.CATEGORY[fullKey] ?? '#94a3b8';
 }
 

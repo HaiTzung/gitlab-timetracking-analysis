@@ -5,7 +5,7 @@ import {
     BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend,
     ResponsiveContainer, Cell, ScatterChart, Scatter, ZAxis, ReferenceLine,
 } from 'recharts';
-import { CHART_CONFIG, CHART_TITLES, CHART_LABELS, CATEGORIES, COLORS as CONFIG_COLORS } from '@/config/dashboardConfig';
+import { CHART_CONFIG, CHART_TITLES, CHART_LABELS, CATEGORIES, COLORS as CONFIG_COLORS, CATEGORY_LABELS } from '@/config/dashboardConfig';
 import { Issue, IssueComplexityData } from '@/types/dashboard';
 import { differenceInDays, parseISO } from 'date-fns';
 import { useChartColors } from '@/hooks/useChartColors';
@@ -33,7 +33,7 @@ function buildCategoryComparison(issues: Issue[]) {
     return CATEGORY_VALUES.map(cat => {
         const catIssues = issuesWithTime.filter(i => i.mainCategory === cat && i.spentH > 0);
         return {
-            category: cat.replace('category::', ''),
+            category: CATEGORY_LABELS[cat] ?? cat.replace('category::', ''),
             estimated: catIssues.reduce((s, i) => s + i.estimatedH, 0),
             actual: catIssues.reduce((s, i) => s + i.spentH, 0),
         };
@@ -79,6 +79,9 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
     const categoryComparison = buildCategoryComparison(issues);
     const scatter = buildScatter(issues);
     const aging = buildAging(issues);
+    const prettyToRaw = new Map(
+        Object.entries(CATEGORY_LABELS).map(([raw, pretty]) => [pretty, raw])
+    );
     const maxScatter = Math.max(...scatter.map(d => Math.max(d.estimated, d.actual)), 1);
     const cc = useChartColors();
 
@@ -136,7 +139,7 @@ const IssueAnalysis: React.FC<IssueAnalysisProps> = ({ issueComplexityData, COLO
                                 {issueComplexityData.map((entry) => (
                                     <Cell
                                         key={`cell-${entry.category}`}
-                                        fill={CONFIG_COLORS.CATEGORY[entry.category as keyof typeof CONFIG_COLORS.CATEGORY] ?? '#94a3b8'}
+                                        fill={CONFIG_COLORS.CATEGORY[(prettyToRaw.get(entry.category) ?? entry.category) as keyof typeof CONFIG_COLORS.CATEGORY] ?? '#94a3b8'}
                                     />
                                 ))}
                             </Bar>

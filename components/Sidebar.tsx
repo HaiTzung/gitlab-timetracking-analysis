@@ -12,6 +12,7 @@ import {
   addDays,
 } from "date-fns";
 import { de } from "date-fns/locale";
+import { CATEGORY_LABELS } from "@/config/dashboardConfig";
 
 const NAV_ITEMS = [
   { id: "projektubersicht",       label: "Projektübersicht" },
@@ -148,13 +149,14 @@ export default function Sidebar({ open }: SidebarProps) {
       .sort((a, b) => a.spentAt.localeCompare(b.spentAt))
       .map(t => {
         const category = t.issue?.labels?.nodes?.find(l => l.title.startsWith('category::'))?.title ?? '';
+        const categoryLabel = category ? (CATEGORY_LABELS[category] ?? category.replace('category::', '')) : '';
         const hours = (t.timeSpent / 3600).toFixed(2);
         const date = t.spentAt.slice(0, 10);
         const title = (t.issue?.title ?? '').replace(/"/g, '""');
         const iid = t.issue?.iid ?? '';
         const estimated = t.issue?.timeEstimate ? (t.issue.timeEstimate / 3600).toFixed(2) : '';
         const totalSpent = t.issue?.totalTimeSpent ? (t.issue.totalTimeSpent / 3600).toFixed(2) : '';
-        return `"${t.user.username}","${t.user.name}","${date}","${hours}","${iid}","${title}","${category}","${estimated}","${totalSpent}"`;
+        return `"${t.user.username}","${t.user.name}","${date}","${hours}","${iid}","${title}","${categoryLabel}","${estimated}","${totalSpent}"`;
       }).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
