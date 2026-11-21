@@ -46,6 +46,7 @@ import IssueDashboard from "./IssueDashboard";
 import DetailedActivity from "./DetailedActivity";
 import Leaderboard from "./Leaderboard";
 import PresentationMode from "./PresentationMode";
+import type { CachedDashboardData } from "@/lib/serverCache";
 
 // Import types
 import {
@@ -64,14 +65,15 @@ import {
 interface TimeTrackingDashboardProps {
   startDate: Date;
   endDate: Date;
+  initialData: CachedDashboardData | null;
 }
 
-const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate, endDate }) => {
-  const hasEverLoaded = useRef(false);
-  const [timelogs, setTimelogs] = useState<Timelog[]>([]);
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [epics, setEpics] = useState<Epic[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
+const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate, endDate, initialData }) => {
+  const hasEverLoaded = useRef(initialData !== null);
+  const [timelogs, setTimelogs] = useState<Timelog[]>(initialData?.timelogs ?? []);
+  const [issues, setIssues] = useState<Issue[]>(initialData?.issues ?? []);
+  const [epics, setEpics] = useState<Epic[]>(initialData?.epics ?? []);
+  const [milestones, setMilestones] = useState<Milestone[]>(initialData?.milestones ?? []);
   const [issueStatuses, setIssueStatuses] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
@@ -516,15 +518,31 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
       setCacheStatus({});
     }
     try {
-      const [, , , , ...tlResults] = await Promise.all([
+      // Fire all fetches concurrently; set state as each one lands so the UI
+      // populates incrementally instead of waiting for the slowest fetch.
+      let firstTlDone = false;
+      const tlPromises = TEAM_MEMBERS.map((username) =>
+        fetchTimelogsForUser(username).then(tl => {
+          setTimelogs(prev => {
+            // On cold start append; on warm load replace per-user by filtering out
+            // the old entries for this user and appending the new ones.
+            const without = prev.filter(t => t.user?.username !== username);
+            return [...without, ...tl];
+          });
+          if (!firstTlDone) {
+            firstTlDone = true;
+            hasEverLoaded.current = true;
+          }
+          return tl;
+        })
+      );
+      await Promise.all([
         fetchAllIssues(),
         fetchAllEpics(),
         fetchAllMilestones(),
         fetchWorkItemStatuses(),
-        ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username)),
+        ...tlPromises,
       ]);
-      setTimelogs((tlResults as unknown as Timelog[][]).flat());
-      hasEverLoaded.current = true;
       await fetchIssueNotes();
       setLastRefreshed(new Date());
     } catch {
@@ -544,14 +562,20 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
     setError(null);
     const tick = () => setBgLoaded((n) => n + 1);
     try {
-      const [, , , , ...tlResults] = await Promise.all([
+      // Collect fresh timelogs into a local accumulator so we can do one atomic
+      // setTimelogs at the end — prevents old + new data mixing mid-refresh.
+      const freshTls: Timelog[][] = [];
+      const tlPromises = TEAM_MEMBERS.map((username) =>
+        fetchTimelogsForUser(username, true).then(r => { tick(); freshTls.push(r); return r; })
+      );
+      await Promise.all([
         fetchAllIssues(true).then(r => { tick(); return r; }),
         fetchAllEpics(true).then(r => { tick(); return r; }),
         fetchAllMilestones(true).then(r => { tick(); return r; }),
         fetchWorkItemStatuses(true).then(r => { tick(); return r; }),
-        ...TEAM_MEMBERS.map((username) => fetchTimelogsForUser(username, true).then(r => { tick(); return r; })),
+        ...tlPromises,
       ]);
-      setTimelogs((tlResults as unknown as Timelog[][]).flat());
+      setTimelogs(freshTls.flat());
       hasEverLoaded.current = true;
       await fetchIssueNotes(true).then(r => { tick(); return r; });
       setLastRefreshed(new Date());
@@ -564,18 +588,23 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   }, []);
 
   useEffect(() => {
-    fetch('/api/cache-status')
-      .then(r => r.json())
-      .then(({ entries }) => {
-        const hasCache = entries && Object.keys(entries).length > 0;
-        if (hasCache) {
-          // Show cached data instantly, then fetch fresh from GitLab in background
-          fetchAllData(false).then(() => manualRefresh());
-        } else {
-          fetchAllData(true);
-        }
-      })
-      .catch(() => fetchAllData(true));
+    if (initialData) {
+      // Server already embedded cached data — just refresh in background
+      manualRefresh();
+    } else {
+      fetch('/api/cache-status')
+        .then(r => r.json())
+        .then(({ entries }) => {
+          const hasCache = entries && Object.keys(entries).length > 0;
+          if (hasCache) {
+            fetchAllData(false).then(() => manualRefresh());
+          } else {
+            fetchAllData(true);
+          }
+        })
+        .catch(() => fetchAllData(true));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate]);
 
   useEffect(() => {
