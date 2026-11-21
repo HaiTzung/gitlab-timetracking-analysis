@@ -384,14 +384,6 @@ const GanttView: React.FC<GanttViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [rootEpics, milestones, epicIssues, milestoneIssues, orphanIssues, globalStart, globalEnd, issueToEpicDue, collapsedEpics]);
 
-    if (rows.length === 0) {
-        return (
-            <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">
-                Keine Daten für das Gantt-Diagramm vorhanden.
-            </div>
-        );
-    }
-
     const ROW_HEIGHT = 64;
     const MONTH_HEADER_HEIGHT = 32;
     const WEEK_HEADER_HEIGHT = 36;
@@ -484,6 +476,14 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     const [scrub, setScrub] = useState<{ x: number; y: number } | null>(null);
     const scrubberRef = useRef<HTMLDivElement>(null);
+
+    if (rows.length === 0) {
+        return (
+            <div className="py-12 text-center text-sm text-gray-400 dark:text-gray-500">
+                Keine Daten für das Gantt-Diagramm vorhanden.
+            </div>
+        );
+    }
 
     const scrubDate = scrub !== null
         ? addDays(timelineStart, Math.floor(scrub.x / PX_PER_DAY))

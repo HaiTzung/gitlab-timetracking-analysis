@@ -30,6 +30,7 @@ export interface DashboardToolbarState {
     onSetCustomDates: (start: Date | null, end: Date | null) => void;
     tuOffset: boolean;
     onSetTuOffset: (v: boolean) => void;
+    cacheStatus: Record<string, number>;
 }
 
 interface DashboardContextValue {

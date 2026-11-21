@@ -412,6 +412,21 @@ export default function Sidebar({ open }: SidebarProps) {
             Laden
           </button>
 
+          {/* Cache freshness dot */}
+          {ctx && Object.keys(ctx.cacheStatus).length > 0 && (() => {
+            const now = Date.now();
+            const oldest = Math.min(...Object.values(ctx.cacheStatus));
+            const ageMin = (now - oldest) / 60000;
+            const color = ageMin < 5 ? "bg-green-500" : ageMin < 30 ? "bg-yellow-400" : "bg-red-500";
+            const timeStr = new Date(oldest).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+            return (
+              <div className="flex items-center gap-1.5 px-1" title={`Älteste Daten von ${timeStr} Uhr (${Math.round(ageMin)} Min.)`}>
+                <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
+                <span className="text-[10px] text-gray-500 dark:text-gray-400 whitespace-nowrap">{timeStr}</span>
+              </div>
+            );
+          })()}
+
           {/* Theme cycle: light → dark → auto */}
           <button
             onClick={cycleTheme}
