@@ -65,16 +65,19 @@ function buildCategoryIssueCountForWeek(issues: Issue[], weekStart: Date, weekEn
     });
 }
 
-function buildWeeklyIssueVolume(issues: Issue[]) {
+function buildWeeklyIssueVolume(issues: Issue[], tuOffset: boolean) {
     if (!issues.length) return [];
     const dates = issues.map(i => parseISO(i.createdAt));
     const earliest = dates.reduce((a, b) => a < b ? a : b);
+    // Always use Mon-anchored weeks; when tuOffset, shift Monday dates back 1 day
+    // so they land in the previous Mon bucket (= end of the Tue–Mon week)
     const weeks = eachWeekOfInterval({ start: earliest, end: new Date() }, { weekStartsOn: 1 });
+    const anchor = (d: Date) => tuOffset && d.getDay() === 1 ? subDays(d, 1) : d;
     return weeks.map(weekStart => {
         const weekEnd = addDays(weekStart, 6);
         const label = format(weekStart, "'KW' II/yy", { locale: de });
-        const opened = issues.filter(i => { const d = parseISO(i.createdAt); return d >= weekStart && d <= weekEnd; }).length;
-        const closed = issues.filter(i => { if (!i.closedAt) return false; const d = parseISO(i.closedAt); return d >= weekStart && d <= weekEnd; }).length;
+        const opened = issues.filter(i => { const d = anchor(parseISO(i.createdAt)); return d >= weekStart && d <= weekEnd; }).length;
+        const closed = issues.filter(i => { if (!i.closedAt) return false; const d = anchor(parseISO(i.closedAt)); return d >= weekStart && d <= weekEnd; }).length;
         return { week: label, opened, closed };
     }).filter(w => w.opened > 0 || w.closed > 0);
 }
@@ -483,12 +486,13 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
     // Orphans: issues not assigned to any epic
     const orphanIssues = filteredIssues.filter(i => !assignedIids.has(i.iid));
 
-    const weeklyVolume = buildWeeklyIssueVolume(issues);
     const catIssueCounts = buildCategoryIssueCount(issues);
 
     const ctx = useDashboardContext();
     const cc = useChartColors();
     const isKwMode = ctx?.timeWindow === 'kw' && !!ctx.customStart && !!ctx.customEnd;
+    const tuOffset = ctx?.tuOffset ?? true;
+    const weeklyVolume = buildWeeklyIssueVolume(issues, tuOffset);
 
     const dailyCategoryData = isKwMode
         ? buildDailyCategoryData(timelogs, ctx!.customStart!, ctx!.customEnd!)
@@ -544,7 +548,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
         <div id="issue-zeitanalyse" className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow">
             {/* Header */}
             <div className="flex items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Issues</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Issues <span className="text-base font-normal text-gray-400 dark:text-gray-500">({issues.length})</span></h2>
             </div>
 
                         {/* Charts — always visible */}

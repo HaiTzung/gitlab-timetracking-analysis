@@ -99,9 +99,11 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
         const monAnchor = startOfWeek(today, { weekStartsOn: 1 });
         const prevMonAnchor = addDays(monAnchor, -7);
 
-        const kwBounds = (anchor: Date) => ({
-            start: tuOffset ? addDays(anchor, 1) : anchor,
-            end:   tuOffset ? new Date(new Date(addDays(anchor, 7)).setHours(23, 59, 59, 0)) : new Date(new Date(addDays(anchor, 7)).setHours(0, 0, 0, 0)),
+        // For Di–Mo weeks: current week = Tue(last week) to Mon(this week)
+        // anchor is this Monday; Di–Mo week starts the Tuesday before it (-6 days)
+        const kwBounds = (monDay: Date) => ({
+            start: tuOffset ? addDays(monDay, -6) : monDay,
+            end:   tuOffset ? new Date(new Date(monDay).setHours(23, 59, 59, 0)) : new Date(new Date(addDays(monDay, 7)).setHours(0, 0, 0, 0)),
         });
 
         const curr = kwBounds(monAnchor);
