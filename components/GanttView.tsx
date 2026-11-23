@@ -17,6 +17,7 @@ interface GanttViewProps {
     pxPerDay: number;
     ganttStateFilter: 'opened' | 'closed' | 'all';
     issueStatuses: Map<string, string>;
+    hideEmptyEpics?: boolean;
     refreshedAt?: number;
 }
 
@@ -80,6 +81,7 @@ const GanttView: React.FC<GanttViewProps> = ({
     pxPerDay,
     ganttStateFilter,
     issueStatuses,
+    hideEmptyEpics = true,
     refreshedAt,
 }) => {
     // Build epic lookup maps
@@ -345,7 +347,7 @@ const GanttView: React.FC<GanttViewProps> = ({
         if (!collapsedEpics.has(epic.iid)) {
             // Child epics
             const children = (childEpics.get(epic.iid) ?? [])
-                .filter(c => epicHasContent(c.iid))
+                .filter(c => !hideEmptyEpics || epicHasContent(c.iid))
                 .slice().sort((a, b) => {
                 if (!a.startDate && !b.startDate) return 0;
                 if (!a.startDate) return 1;
@@ -366,8 +368,8 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     const rows = useMemo(() => {
         const result: GanttRow[] = [];
-        // Epics + their issues (skip empty epics)
-        rootEpics.filter(e => epicHasContent(e.iid)).forEach(epic => result.push(...epicRows(epic, 0)));
+        // Epics + their issues (skip empty epics when hideEmptyEpics is true)
+        rootEpics.filter(e => !hideEmptyEpics || epicHasContent(e.iid)).forEach(epic => result.push(...epicRows(epic, 0)));
         // Milestones + their associated issues (skip empty milestones)
         const sortedMilestones = [...milestones]
             .filter(ms => (milestoneIssues.get(ms.title)?.length ?? 0) > 0)
@@ -396,7 +398,7 @@ const GanttView: React.FC<GanttViewProps> = ({
         orphanIssues.forEach(issue => result.push(issueRow(issue, 0)));
         return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rootEpics, milestones, epicIssues, milestoneIssues, orphanIssues, globalStart, globalEnd, issueToEpicDue, collapsedEpics]);
+    }, [rootEpics, milestones, epicIssues, milestoneIssues, orphanIssues, globalStart, globalEnd, issueToEpicDue, collapsedEpics, hideEmptyEpics]);
 
     const ROW_HEIGHT = 64;
     const MONTH_HEADER_HEIGHT = 32;

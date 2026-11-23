@@ -790,6 +790,18 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                             </svg>
                         </div>
                     )}
+                    {viewMode === 'gantt' && (
+                        <button
+                            onClick={() => setHideEmptyEpics(v => !v)}
+                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+                                hideEmptyEpics
+                                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                                    : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                            }`}
+                        >
+                            Leere Epics ausblenden
+                        </button>
+                    )}
                     {viewMode === 'issues' && (
                         <button
                             onClick={() => setHideEmptyEpics(v => !v)}
@@ -818,6 +830,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                     pxPerDay={pxPerDay}
                     ganttStateFilter={ganttStateFilter}
                     issueStatuses={issueStatuses}
+                    hideEmptyEpics={hideEmptyEpics}
                     refreshedAt={refreshedAt}
                 />
             ) : (
