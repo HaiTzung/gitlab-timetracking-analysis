@@ -394,14 +394,14 @@ function OrphanGroup({ issues, issueStatuses, defaultExpanded = true }: { issues
 }
 
 const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, milestones, issueStatuses, defaultExpanded = true, timelogs, projectMetrics, startDate, endDate, refreshedAt }) => {
-    const [viewMode, setViewMode] = useState<'issues' | 'gantt'>('issues');
+    const [viewMode, setViewMode] = useState<'issues' | 'gantt' | 'milestones'>('issues');
     const [pxPerDay, setPxPerDay] = useState(28);
     const [ganttStateFilter, setGanttStateFilter] = useState<'opened' | 'closed' | 'all'>('opened');
     const [stateFilter, setStateFilter] = useState<StateFilter>('opened');
     const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
 
     useEffect(() => {
-        setViewMode((localStorage.getItem('issueDashboard.viewMode') as 'issues' | 'gantt') ?? 'issues');
+        setViewMode((localStorage.getItem('issueDashboard.viewMode') as 'issues' | 'gantt' | 'milestones') ?? 'issues');
         setStateFilter((localStorage.getItem('issueDashboard.stateFilter') as StateFilter) ?? 'opened');
         setAssigneeFilter(localStorage.getItem('issueDashboard.assigneeFilter') ?? 'all');
         setHideEmptyEpics(localStorage.getItem('issueDashboard.hideEmptyEpics') === 'true');
@@ -681,7 +681,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
             <div className="flex items-center justify-between mt-6 mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-3 flex-wrap">
                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">
-                        {viewMode === 'issues' ? 'Issue Board' : 'Gantt Diagramm'}
+                        {viewMode === 'issues' ? 'Issue Board' : viewMode === 'gantt' ? 'Gantt Diagramm' : 'Meilensteine'}
                     </h3>
                     <div className="flex items-center gap-1.5 flex-wrap">
                     {issueSummary.inProgress > 0 && (
@@ -720,14 +720,14 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                     )}
                     </div>
                 </div>
-                {/* Issues / Meilensteine toggle */}
+                {/* Issues / Gantt / Meilensteine toggle */}
                 <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
-                    {(['issues', 'gantt'] as const).map(mode => (
+                    {(['issues', 'gantt', 'milestones'] as const).map(mode => (
                         <button key={mode} onClick={() => setViewMode(mode)}
                             className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                                 viewMode === mode ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                             }`}>
-                            {mode === 'issues' ? 'Issues' : 'Meilensteine'}
+                            {mode === 'issues' ? 'Issues' : mode === 'gantt' ? 'Gantt' : 'Meilensteine'}
                         </button>
                     ))}
                 </div>
@@ -748,8 +748,8 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                         ))}
                     </div>
                     )}
-                    {/* Gantt-only: state filter + zoom */}
-                    {viewMode === 'gantt' && (
+                    {/* Gantt/Milestones: state filter + zoom */}
+                    {(viewMode === 'gantt' || viewMode === 'milestones') && (
                         <div className="flex rounded-lg bg-gray-100 dark:bg-gray-800 p-1 gap-1">
                             {(['all', 'opened', 'closed'] as const).map(s => (
                                 <button key={s} onClick={() => setGanttStateFilter(s)}
@@ -761,7 +761,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                             ))}
                         </div>
                     )}
-                    {viewMode === 'gantt' && (
+                    {(viewMode === 'gantt' || viewMode === 'milestones') && (
                         <div className="flex items-center gap-1.5">
                             <button onClick={() => setPxPerDay(p => Math.max(4, Math.round(p / 1.4)))}
                                 className="w-5 h-5 flex items-center justify-center rounded text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold leading-none transition-colors"
@@ -802,6 +802,18 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                             Leere Epics ausblenden
                         </button>
                     )}
+                    {viewMode === 'milestones' && (
+                        <button
+                            onClick={() => setHideEmptyEpics(v => !v)}
+                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
+                                hideEmptyEpics
+                                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300'
+                                    : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                            }`}
+                        >
+                            Leere Epics ausblenden
+                        </button>
+                    )}
                     {viewMode === 'issues' && (
                         <button
                             onClick={() => setHideEmptyEpics(v => !v)}
@@ -817,7 +829,7 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                 </div>
             </div>
 
-            {/* Swappable section: Issue tree or Gantt */}
+            {/* Swappable section: Issue tree, Gantt, or Milestone Gantt */}
             {viewMode === 'gantt' ? (
                 <GanttView
                     epics={epics}
@@ -831,6 +843,22 @@ const IssueDashboard: React.FC<IssueDashboardProps> = ({ issues, epics, mileston
                     ganttStateFilter={ganttStateFilter}
                     issueStatuses={issueStatuses}
                     hideEmptyEpics={hideEmptyEpics}
+                    refreshedAt={refreshedAt}
+                />
+            ) : viewMode === 'milestones' ? (
+                <GanttView
+                    epics={epics}
+                    milestones={milestones}
+                    issues={issues}
+                    globalStart={startDate}
+                    globalEnd={endDate}
+                    stateFilter={stateFilter}
+                    assigneeFilter={assigneeFilter}
+                    pxPerDay={pxPerDay}
+                    ganttStateFilter={ganttStateFilter}
+                    issueStatuses={issueStatuses}
+                    hideEmptyEpics={hideEmptyEpics}
+                    groupByMilestone={true}
                     refreshedAt={refreshedAt}
                 />
             ) : (

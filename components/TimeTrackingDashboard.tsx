@@ -273,7 +273,6 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
                       title
                       startDate
                       dueDate
-                      webUrl
                       state
                     }
                     pageInfo { hasNextPage endCursor }
@@ -1262,7 +1261,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         TEAM_COLORS={TEAM_COLORS_STABLE}
       />
 
-      <IssueDashboard issues={issues} epics={epics} milestones={milestones} issueStatuses={issueStatuses} timelogs={windowLiveTimelogs} projectMetrics={projectMetrics} startDate={startDate} endDate={endDate} refreshedAt={lastRefreshed?.getTime()} />
+      <IssueDashboard issues={issues} epics={epics} milestones={displayMilestones} issueStatuses={issueStatuses} timelogs={windowLiveTimelogs} projectMetrics={projectMetrics} startDate={startDate} endDate={endDate} refreshedAt={lastRefreshed?.getTime()} />
 
       <IssueAnalysis issueComplexityData={issueComplexityData} COLORS={PRIMARY_COLORS} issues={displayIssues} />
 

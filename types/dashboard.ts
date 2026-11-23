@@ -56,7 +56,6 @@ export interface Milestone {
     title: string;
     startDate: string | null;
     dueDate: string | null;
-    webUrl: string;
     state: string;
 }
 

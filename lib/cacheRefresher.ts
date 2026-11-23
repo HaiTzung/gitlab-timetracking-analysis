@@ -105,7 +105,7 @@ export async function refreshMilestones(): Promise<void> {
         const data = await gitlabQuery(`{
             group(fullPath: "${GROUP}") {
                 milestones(first: 100, after: ${cursor ? `"${cursor}"` : 'null'}) {
-                    nodes { id iid title startDate dueDate webUrl state }
+                    nodes { id iid title startDate dueDate state }
                     pageInfo { hasNextPage endCursor }
                 }
             }

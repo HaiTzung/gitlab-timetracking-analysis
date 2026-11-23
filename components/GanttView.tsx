@@ -5,6 +5,7 @@ import { Epic, Milestone, Issue } from '@/types/dashboard';
 import { parseISO, differenceInDays, format, addDays, endOfMonth, eachMonthOfInterval, startOfWeek, addWeeks } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { useDashboardContext } from '@/context/DashboardContext';
+import { GITLAB_CONFIG } from '@/config/dashboardConfig';
 
 interface GanttViewProps {
     epics: Epic[];
@@ -18,6 +19,7 @@ interface GanttViewProps {
     ganttStateFilter: 'opened' | 'closed' | 'all';
     issueStatuses: Map<string, string>;
     hideEmptyEpics?: boolean;
+    groupByMilestone?: boolean;
     refreshedAt?: number;
 }
 
@@ -27,7 +29,7 @@ interface GanttRow {
     kind: RowKind;
     id: string;
     title: string;
-    webUrl: string;
+    webUrl: string | undefined;
     barStart: Date;
     barEnd: Date;
     state: string;
@@ -39,6 +41,7 @@ interface GanttRow {
     timeSpent?: number;
     timeEstimate?: number;
     issueStatus?: string;
+    msStats?: { totalIssues: number; closedIssues: number; timeSpent: number; timeEstimate: number };
 }
 
 // Depth-indexed palette for epic bars: depth 0 → deepest blue, deeper → lighter
@@ -57,16 +60,16 @@ const EPIC_LABEL_COLORS = [
     'text-sky-600 dark:text-sky-400',
 ];
 
-function barColorClass(kind: RowKind, state: string, depth: number): string {
+function barColorClass(kind: RowKind, state: string, depth: number, milestoneView = false): string {
     if (kind === 'epic') return EPIC_BAR_COLORS[Math.min(depth, EPIC_BAR_COLORS.length - 1)];
-    if (kind === 'milestone') return 'bg-purple-500 hover:bg-purple-600';
+    if (kind === 'milestone') return milestoneView ? 'bg-teal-500 hover:bg-teal-600' : 'bg-purple-500 hover:bg-purple-600';
     if (state === 'closed') return 'bg-gray-400 hover:bg-gray-500';
     return 'bg-green-500 hover:bg-green-600';
 }
 
-function labelColorClass(kind: RowKind, depth: number): string {
+function labelColorClass(kind: RowKind, depth: number, milestoneView = false): string {
     if (kind === 'epic') return EPIC_LABEL_COLORS[Math.min(depth, EPIC_LABEL_COLORS.length - 1)];
-    if (kind === 'milestone') return 'font-semibold text-purple-700 dark:text-purple-300';
+    if (kind === 'milestone') return milestoneView ? 'font-semibold text-teal-700 dark:text-teal-300' : 'font-semibold text-purple-700 dark:text-purple-300';
     return 'text-gray-600 dark:text-gray-300 text-sm';
 }
 
@@ -82,6 +85,7 @@ const GanttView: React.FC<GanttViewProps> = ({
     ganttStateFilter,
     issueStatuses,
     hideEmptyEpics = true,
+    groupByMilestone = false,
     refreshedAt,
 }) => {
     // Build epic lookup maps
@@ -164,15 +168,15 @@ const GanttView: React.FC<GanttViewProps> = ({
         return m;
     }, [filteredIssues, epics]);
 
-    // Issues grouped by milestone title (issues with no epic)
     const epicAssignedIids = useMemo(() => {
         const s = new Set<string>();
         epicIssues.forEach(list => list.forEach(i => s.add(i.iid)));
         return s;
     }, [epicIssues]);
 
+    // Issues grouped by milestone title (issues with no epic)
     const milestoneIssues = useMemo(() => {
-        const m = new Map<string, Issue[]>(); // key = milestone.title
+        const m = new Map<string, Issue[]>();
         filteredIssues.forEach(issue => {
             if (epicAssignedIids.has(issue.iid)) return;
             const title = issue.milestone?.title;
@@ -183,9 +187,40 @@ const GanttView: React.FC<GanttViewProps> = ({
         return m;
     }, [filteredIssues, epicAssignedIids]);
 
+    // Per milestone: epicIid → Issue[] for issues that belong to that milestone (including epic-assigned)
+    const milestoneEpicIssues = useMemo(() => {
+        const m = new Map<string, Map<string, Issue[]>>();
+        filteredIssues.forEach(issue => {
+            const msTitle = issue.milestone?.title;
+            const epicIid = issue.epic?.iid;
+            if (!msTitle || !epicIid) return;
+            if (!m.has(msTitle)) m.set(msTitle, new Map());
+            const epicMap = m.get(msTitle)!;
+            if (!epicMap.has(epicIid)) epicMap.set(epicIid, []);
+            epicMap.get(epicIid)!.push(issue);
+        });
+        return m;
+    }, [filteredIssues]);
+
     const orphanIssues = useMemo(() =>
         filteredIssues.filter(i => !epicAssignedIids.has(i.iid) && !i.milestone?.title),
     [filteredIssues, epicAssignedIids]);
+
+    // Aggregate stats per milestone title from ALL issues (not just filtered)
+    const milestoneStats = useMemo(() => {
+        const m = new Map<string, { totalIssues: number; closedIssues: number; timeSpent: number; timeEstimate: number }>();
+        issues.forEach(i => {
+            const title = i.milestone?.title;
+            if (!title) return;
+            if (!m.has(title)) m.set(title, { totalIssues: 0, closedIssues: 0, timeSpent: 0, timeEstimate: 0 });
+            const s = m.get(title)!;
+            s.totalIssues++;
+            if (i.state === 'closed') s.closedIssues++;
+            s.timeSpent += i.totalTimeSpent ?? 0;
+            s.timeEstimate += i.timeEstimate ?? 0;
+        });
+        return m;
+    }, [issues]);
 
     // Determine timeline bounds — all dates normalized to midnight
     const timelineStart = useMemo(() => {
@@ -272,10 +307,10 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     const [collapsedEpics, setCollapsedEpics] = useState<Set<string>>(new Set());
 
-    // Build rows recursively
-    function epicHasContent(epicIid: string): boolean {
-        if ((epicIssues.get(epicIid)?.length ?? 0) > 0) return true;
-        return (childEpics.get(epicIid) ?? []).some(c => epicHasContent(c.iid));
+    // Returns true if epicIid or any of its descendants is in the given set
+    function hasDescendantInSet(epicIid: string, epicIidSet: Set<string>): boolean {
+        if (epicIidSet.has(epicIid)) return true;
+        return (childEpics.get(epicIid) ?? []).some(c => hasDescendantInSet(c.iid, epicIidSet));
     }
 
     function issueRow(issue: Issue, depth: number): GanttRow {
@@ -329,7 +364,12 @@ const GanttView: React.FC<GanttViewProps> = ({
         };
     }
 
-    function epicRows(epic: Epic, depth: number): GanttRow[] {
+    function epicHasContentScoped(epicIid: string, scopedIssues: Map<string, Issue[]>): boolean {
+        if ((scopedIssues.get(epicIid)?.length ?? 0) > 0) return true;
+        return (childEpics.get(epicIid) ?? []).some(c => epicHasContentScoped(c.iid, scopedIssues));
+    }
+
+    function epicRowsScoped(epic: Epic, depth: number, scopedIssues: Map<string, Issue[]>): GanttRow[] {
         const rows: GanttRow[] = [];
         const barStart = epic.startDate ? parseISO(epic.startDate) : globalStart;
         const barEnd = epic.dueDate ? parseISO(epic.dueDate) : globalEnd;
@@ -343,20 +383,17 @@ const GanttView: React.FC<GanttViewProps> = ({
             state: epic.state,
             depth,
         });
-        // If collapsed, skip all children and issues
         if (!collapsedEpics.has(epic.iid)) {
-            // Child epics
             const children = (childEpics.get(epic.iid) ?? [])
-                .filter(c => !hideEmptyEpics || epicHasContent(c.iid))
+                .filter(c => !hideEmptyEpics || epicHasContentScoped(c.iid, scopedIssues))
                 .slice().sort((a, b) => {
-                if (!a.startDate && !b.startDate) return 0;
-                if (!a.startDate) return 1;
-                if (!b.startDate) return -1;
-                return a.startDate.localeCompare(b.startDate);
-            });
-            children.forEach(child => rows.push(...epicRows(child, depth + 1)));
-            // Issues for this epic — sorted by IID ascending
-            (epicIssues.get(epic.iid) ?? [])
+                    if (!a.startDate && !b.startDate) return 0;
+                    if (!a.startDate) return 1;
+                    if (!b.startDate) return -1;
+                    return a.startDate.localeCompare(b.startDate);
+                });
+            children.forEach(child => rows.push(...epicRowsScoped(child, depth + 1, scopedIssues)));
+            (scopedIssues.get(epic.iid) ?? [])
                 .slice().sort((a, b) => Number(a.iid) - Number(b.iid))
                 .forEach(issue => rows.push(issueRow(issue, depth + 1)));
         }
@@ -368,37 +405,70 @@ const GanttView: React.FC<GanttViewProps> = ({
 
     const rows = useMemo(() => {
         const result: GanttRow[] = [];
-        // Epics + their issues (skip empty epics when hideEmptyEpics is true)
-        rootEpics.filter(e => !hideEmptyEpics || epicHasContent(e.iid)).forEach(epic => result.push(...epicRows(epic, 0)));
-        // Milestones + their associated issues (skip empty milestones)
-        const sortedMilestones = [...milestones]
-            .filter(ms => (milestoneIssues.get(ms.title)?.length ?? 0) > 0)
-            .sort((a, b) => {
-            if (!a.startDate && !b.startDate) return 0;
-            if (!a.startDate) return 1;
-            if (!b.startDate) return -1;
-            return a.startDate.localeCompare(b.startDate);
-        });
-        sortedMilestones.forEach(ms => {
-            const barStart = ms.startDate ? parseISO(ms.startDate) : globalStart;
-            const barEnd = ms.dueDate ? parseISO(ms.dueDate) : globalEnd;
-            result.push({
-                kind: 'milestone',
-                id: ms.iid,
-                title: ms.title,
-                webUrl: ms.webUrl,
-                barStart,
-                barEnd: barEnd > barStart ? barEnd : addDays(barStart, 1),
-                state: ms.state,
-                depth: 0,
+
+        if (groupByMilestone) {
+            // Milestone view: only milestone rows, sorted by start date
+            const sortedMilestones = [...milestones]
+                .sort((a, b) => {
+                    if (!a.startDate && !b.startDate) return 0;
+                    if (!a.startDate) return 1;
+                    if (!b.startDate) return -1;
+                    return a.startDate.localeCompare(b.startDate);
+                });
+            sortedMilestones.forEach(ms => {
+                const barStart = ms.startDate ? parseISO(ms.startDate) : globalStart;
+                const barEnd = ms.dueDate ? parseISO(ms.dueDate) : globalEnd;
+                const msUrl = `https://gitlab.com/groups/${GITLAB_CONFIG.GROUP_PATH}/-/milestones/${ms.iid}#tab-issues`;
+                result.push({
+                    kind: 'milestone',
+                    id: ms.iid,
+                    title: ms.title,
+                    webUrl: msUrl || undefined,
+                    barStart,
+                    barEnd: barEnd > barStart ? barEnd : addDays(barStart, 1),
+                    state: ms.state,
+                    depth: 0,
+                    msStats: milestoneStats.get(ms.title),
+                });
             });
-            (milestoneIssues.get(ms.title) ?? []).forEach(issue => result.push(issueRow(issue, 1)));
-        });
-        // Orphan issues
-        orphanIssues.forEach(issue => result.push(issueRow(issue, 0)));
+        } else {
+            // Default Gantt view: epics as top-level
+            rootEpics
+                .filter(e => !hideEmptyEpics || epicHasContentScoped(e.iid, epicIssues))
+                .forEach(epic => result.push(...epicRowsScoped(epic, 0, epicIssues)));
+            // Milestones for non-epic issues
+            const sortedMilestones = [...milestones]
+                .filter(ms => (milestoneIssues.get(ms.title)?.length ?? 0) > 0)
+                .sort((a, b) => {
+                    if (!a.startDate && !b.startDate) return 0;
+                    if (!a.startDate) return 1;
+                    if (!b.startDate) return -1;
+                    return a.startDate.localeCompare(b.startDate);
+                });
+            sortedMilestones.forEach(ms => {
+                const barStart = ms.startDate ? parseISO(ms.startDate) : globalStart;
+                const barEnd = ms.dueDate ? parseISO(ms.dueDate) : globalEnd;
+                result.push({
+                    kind: 'milestone',
+                    id: ms.iid,
+                    title: ms.title,
+                    webUrl: `https://gitlab.com/groups/${GITLAB_CONFIG.GROUP_PATH}/-/milestones/${ms.iid}#tab-issues`,
+                    barStart,
+                    barEnd: barEnd > barStart ? barEnd : addDays(barStart, 1),
+                    state: ms.state,
+                    depth: 0,
+                    msStats: milestoneStats.get(ms.title),
+                });
+                (milestoneIssues.get(ms.title) ?? [])
+                    .slice().sort((a, b) => Number(a.iid) - Number(b.iid))
+                    .forEach(issue => result.push(issueRow(issue, 1)));
+            });
+            orphanIssues.forEach(issue => result.push(issueRow(issue, 0)));
+        }
+
         return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [rootEpics, milestones, epicIssues, milestoneIssues, orphanIssues, globalStart, globalEnd, issueToEpicDue, collapsedEpics, hideEmptyEpics]);
+    }, [rootEpics, milestones, epicIssues, milestoneIssues, milestoneEpicIssues, orphanIssues, filteredIssues, milestoneStats, globalStart, globalEnd, issueToEpicDue, collapsedEpics, hideEmptyEpics, groupByMilestone]);
 
     const ROW_HEIGHT = 64;
     const MONTH_HEADER_HEIGHT = 32;
@@ -424,6 +494,26 @@ const GanttView: React.FC<GanttViewProps> = ({
             icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="1" y="2" width="10" height="9" rx="1.5"/><path d="M4 1v2M8 1v2M1 5h10"/></svg>,
             text: `${format(row.barStart, 'dd.MM.yyyy')} – ${format(row.barEnd, 'dd.MM.yyyy')}`,
         });
+        if (row.kind === 'milestone' && row.msStats) {
+            const s = row.msStats;
+            const fmt = (sec: number) => { const h = Math.floor(sec / 3600); const m = Math.floor((sec % 3600) / 60); return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`; };
+            result.push({
+                kind: 'row',
+                icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="6" r="4.5"/><path d="M6 3v3l2 1"/></svg>,
+                text: `Issues: ${s.closedIssues} / ${s.totalIssues} geschlossen`,
+            });
+            if (s.timeEstimate > 0 || s.timeSpent > 0) result.push({
+                kind: 'row',
+                icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="6" cy="6" r="4.5"/><path d="M6 3.5V6l1.5 1.5"/></svg>,
+                text: s.timeEstimate > 0 ? `${fmt(s.timeSpent)} / ${fmt(s.timeEstimate)} geplant` : `${fmt(s.timeSpent)} gebucht`,
+            });
+            const pct = s.totalIssues > 0 ? Math.round((s.closedIssues / s.totalIssues) * 100) : 0;
+            result.push({
+                kind: 'row',
+                icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="1" y="4" width="10" height="4" rx="2"/><rect x="1" y="4" width={`${pct / 10}`} height="4" rx="2" fill="currentColor" stroke="none"/></svg>,
+                text: `Fortschritt: ${pct}%`,
+            });
+        }
         if (row.kind === 'issue' && (row.timeSpent !== undefined || row.timeEstimate !== undefined)) {
             const fmt = (s: number) => {
                 const h = Math.floor(s / 3600);
@@ -545,16 +635,16 @@ const GanttView: React.FC<GanttViewProps> = ({
                                 {collapsedEpics.has(row.id) ? '▶' : '▼'}
                             </button>
                         )}
-                        {row.kind === 'milestone' && <span className="mr-1.5 text-purple-400 flex-shrink-0">▲</span>}
+                        {row.kind === 'milestone' && <span className={`mr-1.5 flex-shrink-0 ${groupByMilestone ? 'text-teal-400' : 'text-purple-400'}`}>▲</span>}
                         {row.kind === 'issue' && <span className="mr-1.5 text-gray-300 dark:text-gray-600 flex-shrink-0 text-sm">•</span>}
                         <a
                             href={row.webUrl}
-                            target="_blank"
+                            target={row.webUrl ? "_blank" : undefined}
                             rel="noopener noreferrer"
                             onMouseEnter={e => showTip(rowTipRows(row, false), e)}
                             onMouseMove={moveTip}
                             onMouseLeave={hideTip}
-                            className={`truncate hover:underline ${labelColorClass(row.kind, row.depth)}`}
+                            className={`truncate hover:underline ${labelColorClass(row.kind, row.depth, groupByMilestone)}`}
                         >
                             {row.title}
                         </a>
@@ -690,12 +780,12 @@ const GanttView: React.FC<GanttViewProps> = ({
                             {/* Gantt bar */}
                             <a
                                 href={row.webUrl}
-                                target="_blank"
+                                target={row.webUrl ? "_blank" : undefined}
                                 rel="noopener noreferrer"
                                 onMouseEnter={e => showTip(rowTipRows(row, true), e)}
                                 onMouseMove={moveTip}
                                 onMouseLeave={hideTip}
-                                className={`absolute top-1/2 -translate-y-1/2 h-8 rounded flex items-center px-2 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state, row.depth)}`}
+                                className={`absolute top-1/2 -translate-y-1/2 h-8 rounded flex items-center px-2 overflow-hidden transition-colors z-20 ${barColorClass(row.kind, row.state, row.depth, groupByMilestone)}`}
                                 style={barPx(row.barStart, row.barEnd)}
                             >
                                 <span className="relative text-white text-xs truncate leading-tight select-none z-10 flex-1 min-w-0">
