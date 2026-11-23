@@ -514,6 +514,16 @@ const GanttView: React.FC<GanttViewProps> = ({
                 text: `Fortschritt: ${pct}%`,
             });
         }
+        if (row.kind === 'milestone') {
+            const isClosed = row.state === 'closed';
+            result.push({
+                kind: 'row',
+                icon: isClosed
+                    ? <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M2.5 6.5l2.5 2.5 4.5-4.5"/></svg>
+                    : <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="6" cy="6" r="4.5"/></svg>,
+                text: isClosed ? 'Abgeschlossen' : 'Aktiv',
+            });
+        }
         if (row.kind === 'issue' && (row.timeSpent !== undefined || row.timeEstimate !== undefined)) {
             const fmt = (s: number) => {
                 const h = Math.floor(s / 3600);
@@ -641,7 +651,7 @@ const GanttView: React.FC<GanttViewProps> = ({
                             href={row.webUrl}
                             target={row.webUrl ? "_blank" : undefined}
                             rel="noopener noreferrer"
-                            onMouseEnter={e => showTip(rowTipRows(row, false), e)}
+                            onMouseEnter={e => showTip(rowTipRows(row, row.kind === 'milestone'), e)}
                             onMouseMove={moveTip}
                             onMouseLeave={hideTip}
                             className={`truncate hover:underline ${labelColorClass(row.kind, row.depth, groupByMilestone)}`}
