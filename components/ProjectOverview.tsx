@@ -2,7 +2,8 @@ import React, { memo, useState, useMemo } from 'react';
 import { CHART_CONFIG, KPI_LABELS, CATEGORY_LABELS } from '../config/dashboardConfig';
 import { ProjectMetrics, Issue, Timelog } from '@/types/dashboard';
 import { TimeWindow } from '@/context/DashboardContext';
-import { startOfWeek, addDays } from 'date-fns';
+import { startOfWeek, addDays, format } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 interface ProjectOverviewProps {
     projectMetrics: ProjectMetrics;
@@ -95,24 +96,32 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
         : 0;
 
     const trendData = useMemo(() => {
-        const today = new Date();
-        const monAnchor = startOfWeek(today, { weekStartsOn: 1 });
-        const prevMonAnchor = addDays(monAnchor, -7);
-
-        // For Di–Mo weeks: current week = Tue(last week) to Mon(this week)
-        // anchor is this Monday; Di–Mo week starts the Tuesday before it (-6 days)
-        const kwBounds = (monDay: Date) => ({
-            start: tuOffset ? addDays(monDay, -6) : monDay,
-            end:   tuOffset ? new Date(new Date(monDay).setHours(23, 59, 59, 0)) : new Date(new Date(addDays(monDay, 7)).setHours(0, 0, 0, 0)),
-        });
-
-        const curr = kwBounds(monAnchor);
-        const prev = kwBounds(prevMonAnchor);
-
         const inRange = (dateStr: string, b: { start: Date; end: Date }) => {
             const d = new Date(dateStr);
             return d >= b.start && d <= b.end;
         };
+
+        let curr: { start: Date; end: Date };
+        let prev: { start: Date; end: Date };
+
+        if (timeWindow === 'kw' && customStart && customEnd) {
+            // Use the exact KW selection from the sidebar — same dates as the table
+            curr = { start: customStart, end: customEnd };
+            // Prev = same window shifted back 7 days
+            prev = { start: addDays(customStart, -7), end: addDays(customEnd, -7) };
+        } else {
+            const today = new Date();
+            const monAnchor = startOfWeek(today, { weekStartsOn: 1 });
+            const prevMonAnchor = addDays(monAnchor, -7);
+            const kwBounds = (monDay: Date) => ({
+                start: tuOffset ? addDays(monDay, 1) : monDay,
+                end:   tuOffset
+                    ? new Date(new Date(addDays(monDay, 7)).setHours(23, 59, 59, 0))
+                    : new Date(new Date(addDays(monDay, 7)).setHours(0, 0, 0, 0)),
+            });
+            curr = kwBounds(monAnchor);
+            prev = kwBounds(prevMonAnchor);
+        }
 
         const currLogs = allTimelogs.filter(t => inRange(t.spentAt, curr));
         const prevLogs = allTimelogs.filter(t => inRange(t.spentAt, prev));
@@ -133,13 +142,15 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
             ? Math.floor((Date.now() - new Date(lastLog.spentAt).getTime()) / 86400000)
             : null;
 
+        const dateLabel = `${format(curr.start, 'dd.MM', { locale: de })}–${format(curr.end, 'dd.MM', { locale: de })}`;
+
         return {
             currHours, prevHours, hoursPct: pct(currHours, prevHours),
             currEvents: currLogs.length, prevEvents: prevLogs.length, eventsPct: pct(currLogs.length, prevLogs.length),
             currClosed, prevClosed, closedPct: pct(currClosed, prevClosed),
-            daysSince,
+            daysSince, dateLabel,
         };
-    }, [allTimelogs, issues, tuOffset]);
+    }, [allTimelogs, issues, tuOffset, timeWindow, customStart, customEnd]);
 
     const warnings: Warning[] = WARNINGS
         .map(({ filter, ...rest }) => ({ ...rest, issues: filter(issues) }))
@@ -417,7 +428,7 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
                 ];
                 return (
                     <div className="mt-4">
-                        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Trends diese Woche</h3>
+                        <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Trends diese Woche <span className="normal-case font-normal text-gray-400 dark:text-gray-500">({trendData.dateLabel})</span></h3>
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {tiles.map(tile => (
                                 <div key={tile.label} className={`${tile.bg} p-4 rounded-lg flex flex-col`}>
