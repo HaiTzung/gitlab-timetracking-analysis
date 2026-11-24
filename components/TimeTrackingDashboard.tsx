@@ -104,6 +104,24 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
   const [customStart, setCustomStart] = useState<Date | null>(null);
   const [customEnd, setCustomEnd] = useState<Date | null>(null);
   const [tuOffset, setTuOffset] = useState(true);
+
+  // Apply ?from=YYYY-MM-DD&to=YYYY-MM-DD&week=tu URL params on first load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const from = params.get('from');
+    const to = params.get('to');
+    const week = params.get('week');
+    if (from && to) {
+      const start = new Date(from + 'T00:00:00');
+      const end = new Date(to + 'T23:59:59');
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        if (week === 'mo') setTuOffset(false);
+        setCustomStart(start);
+        setCustomEnd(end);
+        setTimeWindow('kw');
+      }
+    }
+  }, []);
   const [presentationMode, setPresentationMode] = useState(false);
   const totalFetchCount = TEAM_MEMBERS.length + 4; // +1 issues, +1 epics, +1 workitem statuses, +1 notes
 

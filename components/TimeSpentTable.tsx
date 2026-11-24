@@ -66,6 +66,7 @@ function buildMarkdown(
     grandTotal: number,
     timeLabel: string,
     rangeLabel: string,
+    dashboardUrl?: string,
 ): string {
     const col = (s: string, w: number) => s.padEnd(w);
     const colR = (s: string, w: number) => s.padStart(w);
@@ -105,6 +106,7 @@ function buildMarkdown(
         ``,
         `**Zeitraum:** ${timeLabel} (${rangeLabel})`,
         `**Exportiert:** ${format(new Date(), 'dd.MM.yyyy HH:mm', { locale: de })}`,
+        ...(dashboardUrl ? [`**Dashboard:** [Woche im Dashboard ansehen](${dashboardUrl})`] : []),
         ``,
         header,
         sep(),
@@ -151,9 +153,20 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
 
     const timeLabel = ctx?.timeWindow === 'kw' && isFiltered ? 'Kalenderwoche' : isFiltered ? 'Benutzerdefiniert' : 'Gesamter Zeitraum';
 
+    const buildDashboardUrl = (): string | undefined => {
+        if (typeof window === 'undefined') return undefined;
+        const s = ctx?.customStart;
+        const e = ctx?.customEnd;
+        if (!s || !e) return undefined;
+        const from = format(s, 'yyyy-MM-dd');
+        const to = format(e, 'yyyy-MM-dd');
+        const params = new URLSearchParams({ from, to, week: 'tu' });
+        return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    };
+
     const handleExportMarkdown = () => {
         if (users.length === 0) return;
-        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel);
+        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel, buildDashboardUrl());
         const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -165,7 +178,7 @@ export default function TimeSpentTable({ timelogs }: TimeSpentTableProps) {
 
     const handleCopyMarkdown = () => {
         if (users.length === 0) return;
-        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel);
+        const md = buildMarkdown(users, categories, data, rowTotals, colTotals, grandTotal, timeLabel, rangeLabel, buildDashboardUrl());
         navigator.clipboard.writeText(md).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
