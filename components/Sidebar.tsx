@@ -12,7 +12,6 @@ import {
   addDays,
 } from "date-fns";
 import { de } from "date-fns/locale";
-import { CATEGORY_LABELS } from "@/config/dashboardConfig";
 
 const NAV_ITEMS = [
   { id: "projektubersicht",       label: "Projektübersicht" },
@@ -130,42 +129,7 @@ export default function Sidebar({ open }: SidebarProps) {
     }
   }, [activeId]);
 
-  const handleCsvExport = () => {
-    if (!ctx) return;
-    const { timeWindow, customStart, customEnd } = ctx;
-    const now = new Date();
-    let from: Date | null = null;
-    let to: Date = now;
-    if (timeWindow === '7d')        from = new Date(now.getTime() - 7 * 86400000);
-    else if (timeWindow === '14d')  from = new Date(now.getTime() - 14 * 86400000);
-    else if (timeWindow === 'month') { from = new Date(now.getFullYear(), now.getMonth(), 1); }
-    else if (timeWindow === 'custom' || timeWindow === 'kw') { from = customStart; if (customEnd) to = customEnd; }
-    const filtered = ctx.timelogs.filter(t => {
-      const d = new Date(t.spentAt);
-      return (!from || d >= from) && d <= to;
-    });
-    const header = 'Benutzer,Anzeigename,Datum,Stunden,Issue-Nr,Issue-Titel,Kategorie,Geschätzt (h),Gesamt gebucht (h)\n';
-    const rows = filtered
-      .sort((a, b) => a.spentAt.localeCompare(b.spentAt))
-      .map(t => {
-        const category = t.issue?.labels?.nodes?.find(l => l.title.startsWith('category::'))?.title ?? '';
-        const categoryLabel = category ? (CATEGORY_LABELS[category] ?? category.replace('category::', '')) : '';
-        const hours = (t.timeSpent / 3600).toFixed(2);
-        const date = t.spentAt.slice(0, 10);
-        const title = (t.issue?.title ?? '').replace(/"/g, '""');
-        const iid = t.issue?.iid ?? '';
-        const estimated = t.issue?.timeEstimate ? (t.issue.timeEstimate / 3600).toFixed(2) : '';
-        const totalSpent = t.issue?.totalTimeSpent ? (t.issue.totalTimeSpent / 3600).toFixed(2) : '';
-        return `"${t.user.username}","${t.user.name}","${date}","${hours}","${iid}","${title}","${categoryLabel}","${estimated}","${totalSpent}"`;
-      }).join('\n');
-    const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `timelogs-${timeWindow}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+
 
   const switchMode = (m: "kw" | "custom") => {
     setMode(m);
@@ -384,38 +348,38 @@ export default function Sidebar({ open }: SidebarProps) {
 
         {/* Actions + dark mode toggle */}
         <div className="px-3 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2">
-          {/* CSV Export */}
-          <button
-            onClick={handleCsvExport}
-            disabled={!ctx || ctx.timelogs.length === 0}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            title="CSV exportieren"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 2v8M5 7l3 3 3-3" />
-              <path d="M3 13h10" />
-            </svg>
-            CSV
-          </button>
-
           {/* Refresh */}
           <button
             onClick={ctx?.onRefresh}
             disabled={!ctx}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-md py-2.5 text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Daten neu laden"
           >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" />
-              <path d="M13.5 2v3h-3" />
-            </svg>
-            Laden
+            <div className="flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5c1.8 0 3.4.87 4.4 2.2" />
+                <path d="M13.5 2v3h-3" />
+              </svg>
+              Daten neu laden
+            </div>
+            {ctx?.lastRefreshed && (() => {
+              const now = Date.now();
+              const oldest = Object.keys(ctx.cacheStatus).length > 0 ? Math.min(...Object.values(ctx.cacheStatus)) : ctx.lastRefreshed.getTime();
+              const ageMin = (now - oldest) / 60000;
+              const color = ageMin < 5 ? 'bg-green-500' : ageMin < 30 ? 'bg-yellow-400' : 'bg-red-500';
+              return (
+                <span className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400 font-medium">
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${color}`} />
+                  {ctx.lastRefreshed.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr
+                </span>
+              );
+            })()}
           </button>
 
           {/* Theme cycle: light → dark → auto */}
           <button
             onClick={cycleTheme}
-            className="flex items-center justify-center w-8 h-8 rounded-md text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+            className="flex items-center justify-center aspect-square self-stretch rounded-md text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
             title={themeTitle}
             aria-label="Toggle theme"
             suppressHydrationWarning
