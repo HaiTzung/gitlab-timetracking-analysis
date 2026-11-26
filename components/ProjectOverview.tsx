@@ -74,6 +74,7 @@ const WARNINGS = (issueStatuses: Map<string, string>): Array<Omit<Warning, 'issu
     {
         key: 'low-time',
         filter: (issues) => issues.filter(i => {
+            if (i.state !== 'closed') return false;
             const isWontDo = issueStatuses.get(i.iid) === "Won't do";
             if (isWontDo && i.totalTimeSpent === 0) return false;
             return i.totalTimeSpent < 600;
