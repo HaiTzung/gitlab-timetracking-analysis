@@ -14,6 +14,7 @@ interface ProjectOverviewProps {
     timeWindow: TimeWindow;
     customStart: Date | null;
     customEnd: Date | null;
+    issueStatuses: Map<string, string>;
 }
 
 interface Warning {
@@ -23,7 +24,7 @@ interface Warning {
     detail: string;
 }
 
-const WARNINGS: Array<Omit<Warning, 'issues'> & { filter: (issues: Issue[]) => Issue[] }> = [
+const WARNINGS = (issueStatuses: Map<string, string>): Array<Omit<Warning, 'issues'> & { filter: (issues: Issue[]) => Issue[] }> => [
     {
         key: 'closed-no-estimate',
         filter: (issues) => issues.filter(i => i.state === 'closed' && i.timeEstimate === 0 && i.totalTimeSpent > 0),
@@ -71,14 +72,18 @@ const WARNINGS: Array<Omit<Warning, 'issues'> & { filter: (issues: Issue[]) => I
         detail: 'Aussagekräftige Beschreibung hinzufügen',
     },
     {
-        key: 'closed-no-time',
-        filter: (issues) => issues.filter(i => i.state === 'closed' && i.totalTimeSpent === 0),
-        label: 'Geschlossen ohne gebuchte Zeit',
+        key: 'low-time',
+        filter: (issues) => issues.filter(i => {
+            const isWontDo = issueStatuses.get(i.iid) === "Won't do";
+            if (isWontDo && i.totalTimeSpent === 0) return false;
+            return i.totalTimeSpent < 600;
+        }),
+        label: 'Weniger als 10 Minuten gebucht',
         detail: 'Zeit nachbuchen oder Issue prüfen',
     },
 ];
 
-const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issues, windowTimelogs, allTimelogs, tuOffset, timeWindow, customStart, customEnd }) => {
+const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issues, windowTimelogs, allTimelogs, tuOffset, timeWindow, customStart, customEnd, issueStatuses }) => {
     const [rootOpen, setRootOpen] = useState(false);
     const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
@@ -152,7 +157,7 @@ const ProjectOverview: React.FC<ProjectOverviewProps> = ({ projectMetrics, issue
         };
     }, [allTimelogs, issues, tuOffset, timeWindow, customStart, customEnd]);
 
-    const warnings: Warning[] = WARNINGS
+    const warnings: Warning[] = WARNINGS(issueStatuses)
         .map(({ filter, ...rest }) => ({ ...rest, issues: filter(issues) }))
         .filter(w => w.issues.length > 0);
 

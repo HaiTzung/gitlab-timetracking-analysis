@@ -1262,6 +1262,7 @@ const TimeTrackingDashboard: React.FC<TimeTrackingDashboardProps> = ({ startDate
         timeWindow={timeWindow}
         customStart={customStart}
         customEnd={customEnd}
+        issueStatuses={issueStatuses}
       />
 
       <DetailedActivity
